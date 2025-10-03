@@ -6,7 +6,7 @@ import sys
 from flask import Flask
 
 from .infra import app_logging
-from .infra.modulos import bootstrap
+from .infra.modulos import bootstrap, db, migrate
 
 
 def create_app(config_filename: str = 'config.dev.json') -> Flask:
@@ -23,17 +23,26 @@ def create_app(config_filename: str = 'config.dev.json') -> Flask:
 
     app_logging.configure_logging(logging.DEBUG)
 
-    app.logger.debug("Lendo a configuração da aplicação a partir do arquivo '%s'" % (config_filename,))
+    app.logger.debug(
+        "Lendo a configuração da aplicação a partir do arquivo '%s'" % (config_filename,))
     try:
-        app.config.from_file(config_filename,load=json.load)
+        app.config.from_file(config_filename, load=json.load)
     except FileNotFoundError:
         app.logger.fatal("O arquivo de configuração '%s' não existe" % (config_filename,))
         sys.exit(1)
     except json.JSONDecodeError as e:
-        app.logger.fatal("O arquivo de configuração '%s' não é um JSON válido: %s" % (config_filename, str(e),))
+        app.logger.fatal(
+            "O arquivo de configuração '%s' não é um JSON válido: %s" % (config_filename, str(e),))
         sys.exit(1)
     except Exception as e:
-        app.logger.fatal("Erro ao carregar o arquivo de configuração '%s': %s" % (config_filename, str(e),))
+        app.logger.fatal(
+            "Erro ao carregar o arquivo de configuração '%s': %s" % (config_filename, str(e),))
+        sys.exit(1)
+
+    app.logger.debug("Aplicando configurações")
+    if "SQLALCHEMY_DATABASE_URI" not in app.config:
+        app.logger.fatal("A chave 'SQLALCHEMY_DATABASE_URI' não está "
+                         "presente no arquivo de configuração")
         sys.exit(1)
 
     if "APP_HOST" not in app.config or \
@@ -56,8 +65,11 @@ def create_app(config_filename: str = 'config.dev.json') -> Flask:
 
     app.logger.debug("Registrando modulos")
     bootstrap.init_app(app)
+    db.init_app(app)
+    migrate.init_app(app, db, compare_type=True)
 
     app.logger.debug("Definindo processadores de contexto")
+
     @app.context_processor
     def inject_globals():
         return dict(app_config=app.config)

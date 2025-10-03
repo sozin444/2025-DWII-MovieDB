@@ -1,3 +1,10 @@
 flask==3.1.2
 # https://bootstrap-flask.readthedocs.io/en/stable/
 bootstrap-flask==2.5.0
+# Para permitir validação de emails no WTForms
+# https://github.com/JoshData/python-email-validator
+email-validator==2.3.0
+# https://flask-sqlalchemy.readthedocs.io/en/stable/
+Flask-SQLAlchemy==3.1.1
+# https://flask-migrate.readthedocs.io/en/latest/
+Flask-Migrate==4.1.0
