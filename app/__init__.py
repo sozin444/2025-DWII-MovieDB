@@ -49,5 +49,9 @@ def create_app(config_filename: str = 'config.dev.json') -> Flask:
                            "arquivo de configuração. Utilizando 5000")
         app.config["APP_PORT"] = 5000
 
+    app.logger.debug("Registrando blueprints")
+    from .routes.root import root_bp
+    app.register_blueprint(root_bp)
+
     app.logger.info("Aplicação configurada com sucesso")
     return app
