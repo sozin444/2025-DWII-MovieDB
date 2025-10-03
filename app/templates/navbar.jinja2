@@ -1,0 +1,88 @@
+{% macro barra_navegacao() %}
+    {% from 'bootstrap5/utils.html' import render_icon %}
+    <nav class="navbar navbar-expand-lg bg-primary-subtle fixed-top rounded-4 shadow-sm mt-3 mx-3 px-3 py-3">
+        <div class="container-fluid position-relative">
+            <!-- Brand -->
+            <a class="navbar-brand" href="{{ url_for('root.index') }}">
+                myMovieDB <small>beta</small>
+            </a>
+
+            <!-- Search form -->
+            <form class="search-form d-flex" role="search" action="#" method="get">
+                <input class="form-control" type="search" name="q"
+                       placeholder="Buscar filmes ou pessoas" aria-label="Buscar">
+                <button class="btn btn-outline-light ms-2" type="submit">Buscar</button>
+            </form>
+
+            <!-- Navbar toggler and menus -->
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
+                    data-bs-target="#topNavbar" aria-controls="topNavbar" aria-expanded="false"
+                    aria-label="Alternar navegação">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <div class="collapse navbar-collapse" id="topNavbar">
+                <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+
+                    <!-- Menu Filmes -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="filmesDropdown"
+                           role="button"
+                           data-bs-toggle="dropdown" aria-expanded="false">
+                            {{ render_icon('film') }} Filmes
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="filmesDropdown">
+                            <li><a class="dropdown-item" href="#">Lista</a></li>
+                            <li><a class="dropdown-item" href="#">Populares</a></li>
+                            <li><a class="dropdown-item" href="#">Em cartaz</a></li>
+                            <li>
+                                <hr class="dropdown-divider">
+                            </li>
+                            <li><a class="dropdown-item" href="#">Adicionar filme</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- Menu Pessoas -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="pessoasDropdown"
+                           role="button"
+                           data-bs-toggle="dropdown" aria-expanded="false">
+                            {{ render_icon('people-fill') }} Pessoas
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="pessoasDropdown">
+                            <li><a class="dropdown-item" href="#">Lista</a>
+                            </li>
+                            <li><a class="dropdown-item" href="#">Atores</a></li>
+                            <li><a class="dropdown-item" href="#">Equipe técnica</a></li>
+                            <li>
+                                <hr class="dropdown-divider">
+                            </li>
+                            <li><a class="dropdown-item" href="#">Adicionar pessoa</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- Menu acesso ao sistema -->
+                    <li class="nav-item dropdown ms-md-3">
+                        <a class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown">
+                            <span class="fw-semibold">Acesso ao sistema</span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-lg-end">
+                            <li><a class="dropdown-item"
+                                   href="#">{{ render_icon('box-arrow-in-right') }}&nbsp;Login</a>
+                            </li>
+                            <li><a class="dropdown-item"
+                                   href="#">{{ render_icon('person-plus') }}&nbsp;Criar
+                                conta</a></li>
+                            <li><a class="dropdown-item"
+                                   href="#">{{ render_icon('person') }}&nbsp;Perfil</a>
+                            </li>
+                            <li><a class="dropdown-item"
+                                   href="#">{{ render_icon('box-arrow-right') }}&nbsp;Logout</a>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+{% endmacro %}

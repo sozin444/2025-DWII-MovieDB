@@ -5,7 +5,8 @@ import sys
 
 from flask import Flask
 
-from app.infra import app_logging
+from .infra import app_logging
+from .infra.modulos import bootstrap
 
 
 def create_app(config_filename: str = 'config.dev.json') -> Flask:
@@ -52,6 +53,14 @@ def create_app(config_filename: str = 'config.dev.json') -> Flask:
     app.logger.debug("Registrando blueprints")
     from .routes.root import root_bp
     app.register_blueprint(root_bp)
+
+    app.logger.debug("Registrando modulos")
+    bootstrap.init_app(app)
+
+    app.logger.debug("Definindo processadores de contexto")
+    @app.context_processor
+    def inject_globals():
+        return dict(app_config=app.config)
 
     app.logger.info("Aplicação configurada com sucesso")
     return app

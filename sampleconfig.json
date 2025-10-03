@@ -1,4 +1,7 @@
 {
+  "BOOTSTRAP_SERVE_LOCAL": true,
+  "BOOTSTRAP_BOOTSWATCH_THEME": "Simplex",
+  "APP_NAME": "MyMovieDB",
   "APP_HOST": "0.0.0.0",
   "APP_PORT": 5000
 }

@@ -1,0 +1,22 @@
+body {
+    padding-top: 80px; /* altura da navbar fixa */
+    padding-bottom: 64px; /* altura do rodapé fixo */
+}
+
+.navbar-brand small {
+    font-size: .8rem;
+    opacity: .8;
+}
+
+/* Aumentar altura da navbar */
+.navbar {
+    min-height: 70px;
+}
+
+@media (min-width: 992px) {
+    .search-form {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+    }
+}
