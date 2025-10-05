@@ -13,3 +13,6 @@ Flask-WTF==1.2.2
 # Para enviar email
 # https://postmarker.readthedocs.io/en/latest/
 postmarker==1.0
+# Para gerar JWTs
+# https://pyjwt.readthedocs.io/en/stable/
+PyJWT==2.10.1
