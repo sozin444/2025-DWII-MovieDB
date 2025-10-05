@@ -20,3 +20,10 @@ body {
         transform: translateX(-50%);
     }
 }
+
+.alert-half {
+    width: 50%;
+    margin: 0 auto;
+    position: relative;
+    z-index: 9999;
+}

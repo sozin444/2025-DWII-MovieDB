@@ -59,8 +59,18 @@ def create_app(config_filename: str = 'config.dev.json') -> Flask:
                            "arquivo de configuração. Utilizando 5000")
         app.config["APP_PORT"] = 5000
 
+    if "SECRET_KEY" not in app.config or app.config.get("SECRET_KEY") is None:
+        secret_key = os.urandom(32).hex()
+        app.logger.warning("A chave 'SECRET_KEY' não está presente no arquivo de configuração")
+        app.logger.warning("Gerando chave aleatória: '%s'" % (secret_key,))
+        app.logger.warning("Para não invalidar os tokens gerados nesta instância da aplicação, "
+                           "adicione a chave acima ao arquivo de configuração")
+        app.config["SECRET_KEY"] = secret_key
+
     app.logger.debug("Registrando blueprints")
     from .routes.root import root_bp
+    from .routes.auth import auth_bp
+    app.register_blueprint(auth_bp)
     app.register_blueprint(root_bp)
 
     app.logger.debug("Registrando modulos")

@@ -1,4 +1,5 @@
 {% from 'navbar.jinja2' import barra_navegacao with context -%}
+{%- from 'mensagens.jinja2' import render_toast_messages with context -%}
 <!doctype html>
 <html lang="pt-br">
 <head>
@@ -23,6 +24,7 @@
 <body class="d-flex flex-column min-vh-100">
 
 {{ barra_navegacao() }}
+{{ render_toast_messages() }}
 
 <!-- Conteúdo principal -->
 <main class="flex-fill d-flex justify-content-center align-items-center pb-5">
