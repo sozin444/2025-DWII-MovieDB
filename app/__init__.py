@@ -5,6 +5,7 @@ import sys
 
 from flask import Flask
 
+from .services.email_service import EmailService
 from .infra import app_logging
 from .infra.modulos import bootstrap, db, migrate
 
@@ -79,10 +80,14 @@ def create_app(config_filename: str = 'config.dev.json') -> Flask:
     migrate.init_app(app, db, compare_type=True)
 
     app.logger.debug("Definindo processadores de contexto")
-
     @app.context_processor
     def inject_globals():
         return dict(app_config=app.config)
+
+    app.logger.debug("Configurando as extensões da aplicação")
+    # Configura o serviço de email
+    email_service = EmailService.create_from_config(app.config)
+    app.extensions['email_service'] = email_service
 
     app.logger.info("Aplicação configurada com sucesso")
     return app
