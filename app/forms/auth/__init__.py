@@ -49,3 +49,35 @@ class LoginForm(FlaskForm):
                 label="Permanecer conectado?",
                 default=True)
     submit = SubmitField("Entrar")
+
+
+class AskToResetPasswordForm(FlaskForm):
+    """Formulário para solicitar redefinição de senha.
+
+    Valida o formato do email antes de enviar o link de redefinição de senha.
+    """
+    email = StringField(
+            label="Email",
+            validators=[
+                InputRequired(message="É obrigatório informar o email para o qual se deseja "
+                                      "definir nova senha"),
+                Email(message="Informe um email válido"),
+                Length(max=180, message="O email pode ter até 180 caracteres")
+            ])
+    submit = SubmitField("Solicitar redefinição de senha")
+
+
+class SetNewPasswordForm(FlaskForm):
+    """Formulário para definir nova senha após reset.
+
+    Valida a complexidade da senha e confirma que as senhas correspondem.
+    """
+    password = PasswordField(
+            label="Nova senha",
+            validators=[InputRequired(message="É necessário escolher uma senha"),
+                        SenhaComplexa()])
+    password2 = PasswordField(
+            label="Confirme a senha",
+            validators=[InputRequired(message="É necessário repetir a senha"),
+                        EqualTo('password', message="As senhas não são iguais")])
+    submit = SubmitField("Redefinir senha")

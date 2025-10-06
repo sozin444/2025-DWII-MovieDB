@@ -9,6 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app import db
 from app.models.autenticacao import User
+from .email_service import EmailValidationService
 from .token_service import JWT_action, JWTService
 
 
@@ -43,6 +44,13 @@ class UserActivationResult:
     status: UserOperationStatus  # Status da operação (SUCCESS, INVALID_TOKEN, USER_NOT_FOUND, etc.)
     user: Optional[User] = None  # Instância do usuário ativado (se sucesso)
     error_message: Optional[str] = None  # Mensagem de erro detalhada (se falha)
+
+@dataclass
+class PasswordResetResult:
+    """Resultado da operação de reset de senha."""
+    status: UserOperationStatus = UserOperationStatus.UNKNOWN
+    user: Optional[User] = None
+    error_message: Optional[str] = None
 
 
 class UserService:
@@ -370,6 +378,139 @@ class UserService:
         except Exception as e:
             current_app.logger.error("Erro ao efetuar logout: %s" % (str(e),))
             return False
+
+    @staticmethod
+    def solicitar_reset_senha(email: str, email_service) -> PasswordResetResult:
+        """Envia email com token para alteração de senha.
+
+        Args:
+            email (str): Email do usuário (será normalizado)
+            email_service (EmailService): Instância do serviço de email
+
+        Returns:
+            PasswordResetResult: Resultado da operação
+        """
+        try:
+            email_normalizado = EmailValidationService.normalize(email)
+        except ValueError:
+            current_app.logger.warning("Email inválido fornecido: %s" % (email,))
+            # Por segurança, retorna SUCCESS mesmo com email inválido
+            return PasswordResetResult(status=UserOperationStatus.SUCCESS)
+
+        usuario = User.get_by_email(email_normalizado)
+        if usuario is None:
+            current_app.logger.warning(
+                    "Pedido de reset de senha para usuário inexistente (%s)" % (email_normalizado,))
+            # Por segurança, retorna SUCCESS mesmo se usuário não existir
+            return PasswordResetResult(status=UserOperationStatus.SUCCESS)
+
+        # Gera token e envia email
+        token = JWTService.create(JWT_action.RESET_PASSWORD, sub=usuario.email)
+        body = render_template('auth/email/email_new_password.jinja2',
+                               nome=usuario.nome,
+                               url=url_for('auth.reset_password', token=token, _external=True))
+        result = email_service.send_email(to=usuario.email,
+                                          subject="Altere a sua senha",
+                                          text_body=body)
+
+        if not result.success:
+            current_app.logger.error("Erro ao enviar email de reset para %s" % (usuario.email,))
+            return PasswordResetResult(
+                    status=UserOperationStatus.SEND_EMAIL_ERROR,
+                    user=usuario,
+                    error_message="Erro no envio do email"
+            )
+
+        current_app.logger.info("Email de reset de senha enviado para %s" % (usuario.email,))
+        return PasswordResetResult(
+                status=UserOperationStatus.SUCCESS,
+                user=usuario
+        )
+
+    @classmethod
+    def redefinir_senha_por_token(cls,
+                                   token: str,
+                                   nova_senha: str,
+                                   session=None,
+                                   auto_commit: bool = True) -> PasswordResetResult:
+        """Redefine a senha de um usuário através de um token JWT.
+
+        Args:
+            token (str): Token JWT de redefinição de senha
+            nova_senha (str): Nova senha em texto plano (será hasheada)
+            session: Sessão SQLAlchemy opcional. Se None, usa a sessão padrão da classe.
+            auto_commit (bool): Se True, faz commit automaticamente. Se False, apenas
+                               atualiza o objeto (útil quando chamado dentro de outra transação).
+
+        Returns:
+            PasswordResetResult: Resultado da redefinição
+        """
+        if session is None:
+            session = cls._default_session
+
+        # Valida o token
+        resultado_token = JWTService.verify(token)
+
+        if not resultado_token.valid:
+            current_app.logger.error("Token inválido: %s" % (resultado_token.reason,))
+            if resultado_token.reason == "expired":
+                return PasswordResetResult(
+                        status=UserOperationStatus.TOKEN_EXPIRED,
+                        error_message="Token expirado"
+                )
+            return PasswordResetResult(
+                    status=UserOperationStatus.INVALID_TOKEN,
+                    error_message=f"Token inválido: {resultado_token.reason}"
+            )
+
+        if resultado_token.action != JWT_action.RESET_PASSWORD:
+            current_app.logger.error("Ação de token inválida: %s" % (resultado_token.action,))
+            return PasswordResetResult(
+                    status=UserOperationStatus.INVALID_TOKEN,
+                    error_message="Token inválido"
+            )
+
+        if resultado_token.sub is None:
+            current_app.logger.error("Token sem subject")
+            return PasswordResetResult(
+                    status=UserOperationStatus.INVALID_TOKEN,
+                    error_message="Token inválido"
+            )
+
+        # Busca o usuário
+        usuario = User.get_by_email(resultado_token.sub)
+        if usuario is None:
+            current_app.logger.warning("Tentativa de reset de senha para usuário inexistente")
+            return PasswordResetResult(
+                    status=UserOperationStatus.USER_NOT_FOUND,
+                    error_message="Usuário não encontrado"
+            )
+
+        # Redefine a senha
+        try:
+            usuario.password = nova_senha  # Será hasheada pelo setter
+
+            if auto_commit:
+                session.commit()
+                current_app.logger.info("Senha redefinida com sucesso para %s" % (usuario.email,))
+            else:
+                current_app.logger.debug(
+                        "Senha marcada para redefinição (sem commit): %s" % (usuario.email,))
+
+            return PasswordResetResult(
+                    status=UserOperationStatus.SUCCESS,
+                    user=usuario
+            )
+
+        except SQLAlchemyError as e:
+            if auto_commit:
+                session.rollback()
+            current_app.logger.error(
+                    "Erro ao redefinir senha do usuário %s: %s" % (usuario.email, str(e)))
+            return PasswordResetResult(
+                    status=UserOperationStatus.DATABASE_ERROR,
+                    error_message=str(e)
+            )
 
     @staticmethod
     def _enviar_email_ativacao(usuario: User, email_service) -> tuple[str, bool]:
