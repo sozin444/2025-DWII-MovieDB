@@ -19,35 +19,40 @@
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {# Container de toasts no canto superior direito #}
-            <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 11000;">
+            <div class="toast-container position-fixed top-0 end-0 p-5" style="z-index: 11000;">
                 {% for category, message in messages %}
                     {# Mapeia categorias de flash para cores de toast do Bootstrap #}
                     {% if category == 'danger' %}
-                        {% set bg_class = 'bg-danger-subtle text-white' %}
+                        {% set bg_class = 'bg-danger-subtle text-dark' %}
                         {% set icon = '❌' %}
                     {% elif category == 'warning' %}
                         {% set bg_class = 'bg-warning-subtle text-dark' %}
                         {% set icon = '⚠️' %}
                     {% elif category == 'success' %}
-                        {% set bg_class = 'bg-success-subtle text-white' %}
+                        {% set bg_class = 'bg-success-subtle text-dark' %}
                         {% set icon = '✅' %}
                     {% elif category == 'info' %}
                         {% set bg_class = 'bg-info-subtle text-dark' %}
                         {% set icon = 'ℹ️' %}
                     {% else %}
-                        {% set bg_class = 'bg-secondary text-white' %}
+                        {% set bg_class = 'bg-secondary text-dark' %}
                         {% set icon = '💬' %}
                     {% endif %}
 
-                    <div class="toast {{ bg_class }}" role="alert" aria-live="assertive" aria-atomic="true"
+                    <div class="toast {{ bg_class }}"
+                         role="alert"
+                         aria-live="assertive"
+                         aria-atomic="true"
                          data-bs-autohide="{% if category not in ['danger', 'warning'] %}true{% else %}false{% endif %}"
                          data-bs-delay="5000">
                         <div class="toast-header {{ bg_class }}">
                             <strong class="me-auto">{{ icon }} Notificação</strong>
-                            <button type="button" class="btn-close {% if category in ['success', 'danger'] %}btn-close-white{% endif %}"
-                                    data-bs-dismiss="toast" aria-label="Fechar"></button>
+                            <button type="button"
+                                    class="btn-close"
+                                    data-bs-dismiss="toast"
+                                    aria-label="Fechar"></button>
                         </div>
-                        <div class="toast-body">
+                        <div class="toast-body bg-secondary-subtle">
                             {{ message }}
                         </div>
                     </div>

@@ -1,37 +1,9 @@
-from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
 from flask import current_app
 
+from .email_models import EmailMessage, EmailResult
 from .email_providers import EmailProvider, MockProvider, PostmarkProvider, SMTPProvider
-
-
-@dataclass
-class EmailMessage:
-    to: str
-    subject: str
-    text_body: Optional[str] = None
-    html_body: Optional[str] = None
-    from_email: Optional[str] = None
-    from_name: Optional[str] = None
-    reply_to: Optional[str] = None
-    cc: Optional[list[str]] = None
-    bcc: Optional[list[str]] = None
-
-    def __post_init__(self):
-        if not self.text_body and not self.html_body:
-            raise ValueError("Email tem que ter text_body ou html_body.")
-
-
-@dataclass
-class EmailResult:
-    success: bool
-    provider: str = ""
-    message_id: Optional[str] = None
-    to: Optional[str] = None
-    sent_at: Optional[str] = None
-    error_code: Optional[int] = None
-    raw_response: Optional[Any] = None
 
 
 class EmailValidationService:

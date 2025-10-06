@@ -42,7 +42,8 @@ principal do editor na parte mais inferior à direita.
 
 Para que a aplicação possa ser executado, é preciso que haja um arquivo JSON de configuração chamado
 `config.dev.json` no diretório `instance`. Você pode criar esse arquivo copiando o conteúdo do
-arquivo `config.sample.json` e ajustando os valores conforme necessário.
+arquivo `sampleconfig.json` e ajustando os valores conforme necessário. O arquivo CONFIG.md contém
+uma descrição detalhada de cada chave de configuração.
 
 1. Instale as dependências do projeto:
    ```bash

@@ -3,7 +3,7 @@ from typing import Any, Dict, List
 
 from flask import current_app
 
-from .email_service import EmailMessage, EmailResult
+from .email_models import EmailMessage, EmailResult
 
 
 class EmailProviderError(Exception):

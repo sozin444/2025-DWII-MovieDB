@@ -3,11 +3,12 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional
 
-from flask import current_app
+from flask import current_app, render_template, url_for
 from sqlalchemy.exc import SQLAlchemyError
 
 from app import db
-from ..models.autenticacao import User
+from .token_service import JWT_action, JWTService, TokenVerificationResult
+from app.models.autenticacao import User
 
 
 class UserOperationStatus(Enum):
@@ -28,10 +29,19 @@ class UserOperationStatus(Enum):
 @dataclass
 class UserRegistrationResult:
     """Resultado da operação de registro de usuário."""
-    status: UserOperationStatus
-    user: Optional[User] = None
-    error_message: Optional[str] = None
+    status: UserOperationStatus  # Status da operação (SUCCESS, DATABASE_ERROR, etc.)
+    user: Optional[User] = None  # Instância do usuário criado (se sucesso)
+    token: Optional[str] = None  # Token JWT para ativação de conta via email
+    email_sent: bool = False  # Indica se o email de ativação foi enviado com sucesso
+    error_message: Optional[str] = None  # Mensagem de erro detalhada (se falha)
 
+
+@dataclass
+class UserActivationResult:
+    """Resultado da operação de ativação de usuário."""
+    status: UserOperationStatus  # Status da operação (SUCCESS, INVALID_TOKEN, USER_NOT_FOUND, etc.)
+    user: Optional[User] = None  # Instância do usuário ativado (se sucesso)
+    error_message: Optional[str] = None  # Mensagem de erro detalhada (se falha)
 
 class UserService:
     """Serviço para operações relacionadas a usuários.
@@ -56,6 +66,7 @@ class UserService:
                           nome: str,
                           email: str,
                           password: str,
+                          email_service,
                           session=None,
                           auto_commit: bool = True) -> UserRegistrationResult:
         """Registra um novo usuário no sistema.
@@ -64,6 +75,7 @@ class UserService:
             nome (str): Nome completo do usuário
             email (str): Email do usuário (será normalizado)
             password (str): Senha em texto plano (será hasheada)
+            email_service (EmailService): Instância do serviço de email
             session: Sessão SQLAlchemy opcional. Se None, usa a sessão padrão da classe.
             auto_commit (bool): Se True, faz commit automaticamente. Se False, apenas
                                atualiza o objeto (útil quando chamado dentro de outra transação).
@@ -79,16 +91,15 @@ class UserService:
             usuario = User()
             usuario.nome = nome
             usuario.email = email  # Será normalizado pelo setter
+            usuario.ativo = False
             usuario.password = password  # Será hasheado pelo setter
-
 
             session.add(usuario)
             session.flush()
             session.refresh(usuario)
 
-            cls.confirmar_email(usuario,
-                                session=session,
-                                auto_commit=False)
+            # Gera token e envia email de confirmação
+            token, email_sent = UserService._enviar_email_ativacao(usuario, email_service)
 
             if auto_commit:
                 session.commit()
@@ -99,7 +110,9 @@ class UserService:
 
             return UserRegistrationResult(
                     status=UserOperationStatus.SUCCESS,
-                    user=usuario
+                    user=usuario,
+                    token=token,
+                    email_sent=email_sent
             )
 
         except ValueError as e:
@@ -120,10 +133,10 @@ class UserService:
             )
 
     @classmethod
-    def confirmar_email(cls,
-                        usuario: User,
-                        session=None,
-                        auto_commit: bool = True) -> bool:
+    def ativar_conta(cls,
+                     usuario: User,
+                     session=None,
+                     auto_commit: bool = True) -> bool:
         """Confirma o email do usuário, ativando sua conta.
 
         Args:
@@ -144,7 +157,7 @@ class UserService:
         try:
             if usuario.ativo:
                 current_app.logger.warning(
-                        "Tentativa de confirmar email já confirmado: %s" % (usuario.email,))
+                        "Tentativa de ativar conta já ativa: %s" % (usuario.email,))
                 return True  # Já está confirmado, não é erro
 
             usuario.ativo = True
@@ -152,10 +165,10 @@ class UserService:
 
             if auto_commit:
                 session.commit()
-                current_app.logger.info("Email confirmado para usuário: %s" % (usuario.email,))
+                current_app.logger.info("Conta ativada para usuário: %s" % (usuario.email,))
             else:
                 current_app.logger.debug(
-                        "Email marcado para confirmação (sem commit): %s" % (usuario.email,))
+                        "Conta marcada para ativação (sem commit): %s" % (usuario.email,))
 
             return True
 
@@ -163,11 +176,11 @@ class UserService:
             if auto_commit:
                 session.rollback()
             current_app.logger.error(
-                    "Erro ao confirmar email do usuário %s: %s" % (usuario.email, str(e)))
+                    "Erro ao ativar conta do usuário %s: %s" % (usuario.email, str(e)))
             raise e
 
     @classmethod
-    def desconfirmar_email(cls,
+    def desativar_conta(cls,
                         usuario: User,
                         session=None,
                         auto_commit: bool = True) -> bool:
@@ -191,7 +204,7 @@ class UserService:
         try:
             if not usuario.ativo:
                 current_app.logger.warning(
-                        "Tentativa de desconfirmar email não confirmado: %s" % (usuario.email,))
+                        "Tentativa de desativar conta inativa: %s" % (usuario.email,))
                 return True  # Não está confirmado, não é erro
 
             usuario.ativo = False
@@ -199,10 +212,10 @@ class UserService:
 
             if auto_commit:
                 session.commit()
-                current_app.logger.info("Email desconfirmado para usuário: %s" % (usuario.email,))
+                current_app.logger.info("Conta desativada para usuário: %s" % (usuario.email,))
             else:
                 current_app.logger.debug(
-                        "Email marcado para desconfirmação (sem commit): %s" % (usuario.email,))
+                        "Conta marcada para desativação (sem commit): %s" % (usuario.email,))
 
             return True
 
@@ -210,7 +223,7 @@ class UserService:
             if auto_commit:
                 session.rollback()
             current_app.logger.error(
-                    "Erro ao desconfirmar email do usuário %s: %s" % (usuario.email, str(e)))
+                    "Erro ao desativar conta do usuário %s: %s" % (usuario.email, str(e)))
             raise e
 
     @staticmethod
@@ -227,3 +240,83 @@ class UserService:
             current_app.logger.warning("Usuário inativo tentou logar: %s" % (usuario.email,))
             return False
         return True
+
+    @staticmethod
+    def ativar_usuario_por_token(token: str) -> UserActivationResult:
+        """Valida o email de um usuário através de um token JWT.
+
+        Args:
+            token (str): Token JWT de validação de email
+
+        Returns:
+            UserActivationResult: Resultado da validação
+        """
+        claims = JWTService.verify(token)
+
+        if not claims.valid:
+            current_app.logger.error("Token inválido: %s" % (claims.reason,))
+            return UserActivationResult(
+                    status=UserOperationStatus.INVALID_TOKEN,
+                    error_message=f"Token inválido: {claims.reason}"
+            )
+
+        if claims.action != JWT_action.VALIDAR_EMAIL:
+            current_app.logger.error("Ação de token inválida: %s" % (claims.action,))
+            return UserActivationResult(
+                    status=UserOperationStatus.INVALID_TOKEN,
+                    error_message="Token inválido"
+            )
+
+        usuario = User.get_by_email(claims.sub)
+        if usuario is None:
+            current_app.logger.warning("Tentativa de validação de email para usuário inexistente")
+            return UserActivationResult(
+                    status=UserOperationStatus.USER_NOT_FOUND,
+                    error_message="Usuário não encontrado"
+            )
+
+        if usuario.ativo:
+            current_app.logger.info("Usuário %s já estava ativo" % (usuario.email,))
+            return UserActivationResult(
+                    status=UserOperationStatus.USER_ALREADY_ACTIVE,
+                    user=usuario,
+                    error_message="Usuário já está ativo"
+            )
+
+        # Confirma o email
+        UserService.ativar_conta(usuario)
+        current_app.logger.info("Email validado com sucesso para %s" % (usuario.email,))
+
+        return UserActivationResult(
+                status=UserOperationStatus.SUCCESS,
+                user=usuario
+        )
+
+    @staticmethod
+    def _enviar_email_ativacao(usuario: User, email_service) -> tuple[str, bool]:
+        """Metodo auxiliar privado para enviar email de ativação/confirmação.
+
+        Args:
+            usuario (user): Instância do usuário
+            email_service (EmailService): Instância do serviço de email
+
+        Returns:
+            tuple[str, bool]: (token gerado, sucesso no envio)
+        """
+        token = JWTService.create(action=JWT_action.VALIDAR_EMAIL,
+                                  sub=usuario.email)
+        current_app.logger.debug("Token de ativação por email: %s" % (token,))
+
+        body = render_template('auth/email/account_activation.jinja2',
+                               nome=usuario.nome,
+                               url=url_for('auth.ativar_usuario', token=token, _external=True))
+        result = email_service.send_email(to=usuario.email,
+                                          subject="Ative sua conta e confirme o seu email",
+                                          text_body=body)
+
+        email_sent = result.success
+        if not email_sent:
+            current_app.logger.error(
+                    "Erro no envio do email de ativação para %s" % (usuario.email,))
+
+        return token, email_sent

@@ -20,12 +20,12 @@ class JWT_action(Enum):
 @dataclass
 class TokenVerificationResult:
     """Resultado da verificação de um token JWT."""
-    valid: bool
-    sub: Optional[str] = None
-    action: Optional[JWT_action] = None
-    age: Optional[int] = None
-    extra_data: Optional[Dict[Any, Any]] = None
-    reason: Optional[str] = None  # 'expired', 'invalid', 'bad_signature', 'missing_sub', etc.
+    valid: bool  # Indica se o token é válido
+    sub: Optional[str] = None  # Subject do token (geralmente email do usuário)
+    action: Optional[JWT_action] = None  # Ação para a qual o token foi criado
+    age: Optional[int] = None  # Idade do token em segundos (tempo desde criação)
+    extra_data: Optional[Dict[Any, Any]] = None  # Dados extras incluídos no payload do token
+    reason: Optional[str] = None  # Motivo da falha se inválido ('expired', 'invalid', 'bad_signature', etc.)
 
 
 class JWTService:
