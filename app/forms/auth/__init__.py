@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms.fields.simple import PasswordField, StringField, SubmitField
+from wtforms.fields.simple import BooleanField, PasswordField, StringField, SubmitField
 from wtforms.validators import Email, EqualTo, InputRequired, Length
 
 from ..validators import SenhaComplexa, UniqueEmail
@@ -29,3 +29,23 @@ class RegistrationForm(FlaskForm):
             validators=[InputRequired(message="É necessário repetir a senha"),
                         EqualTo('password', message="As senhas não são iguais")])
     submit = SubmitField("Criar uma conta no sistema")
+
+
+class LoginForm(FlaskForm):
+    """
+    Form for user login with email and password.
+
+    Includes optional remember me functionality.
+    """
+    email = StringField(
+                label="Email",
+                validators=[InputRequired(message="É obrigatório informar um email para login"),
+                            Email(message="Informe um email válido"),
+                            Length(max=180, message="O email pode ter até 180 caracteres")])
+    password = PasswordField(
+                label="Senha",
+                validators=[InputRequired(message="É necessário informar a senha")])
+    remember_me = BooleanField(
+                label="Permanecer conectado?",
+                default=True)
+    submit = SubmitField("Entrar")

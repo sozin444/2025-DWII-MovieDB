@@ -2,12 +2,38 @@ import json
 import logging
 import os
 import sys
+from functools import wraps
 
 from flask import Flask
 
-from .services.email_service import EmailService
 from .infra import app_logging
-from .infra.modulos import bootstrap, db, migrate
+from .infra.modulos import bootstrap, db, login_manager, migrate
+from .services.email_service import EmailService
+
+
+def anonymous_required(f):
+    """Decorador para restringir acesso a rotas apenas para usuários anônimos.
+
+    Se o usuário estiver autenticado, exibe uma mensagem de aviso e redireciona para a página
+    inicial; caso contrário, permite o acesso à função decorada.
+
+    Args:
+        f (function): Função a ser decorada.
+
+    Returns:
+        function: Função decorada que verifica se o usuário não está autenticado.
+    """
+
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        from flask_login import current_user
+        from flask import redirect, url_for, flash
+        if current_user.is_authenticated:
+            flash("Acesso não autorizado para usuários logados no sistema", category='warning')
+            return redirect(url_for('root.index'))
+        return f(*args, **kwargs)
+
+    return decorated_function
 
 
 def create_app(config_filename: str = 'config.dev.json') -> Flask:
@@ -25,7 +51,7 @@ def create_app(config_filename: str = 'config.dev.json') -> Flask:
     app_logging.configure_logging(logging.DEBUG)
 
     app.logger.debug(
-        "Lendo a configuração da aplicação a partir do arquivo '%s'" % (config_filename,))
+            "Lendo a configuração da aplicação a partir do arquivo '%s'" % (config_filename,))
     try:
         app.config.from_file(config_filename, load=json.load)
     except FileNotFoundError:
@@ -33,11 +59,12 @@ def create_app(config_filename: str = 'config.dev.json') -> Flask:
         sys.exit(1)
     except json.JSONDecodeError as e:
         app.logger.fatal(
-            "O arquivo de configuração '%s' não é um JSON válido: %s" % (config_filename, str(e),))
+                "O arquivo de configuração '%s' não é um JSON válido: %s" % (config_filename,
+                                                                             str(e),))
         sys.exit(1)
     except Exception as e:
         app.logger.fatal(
-            "Erro ao carregar o arquivo de configuração '%s': %s" % (config_filename, str(e),))
+                "Erro ao carregar o arquivo de configuração '%s': %s" % (config_filename, str(e),))
         sys.exit(1)
 
     app.logger.debug("Aplicando configurações")
@@ -78,8 +105,32 @@ def create_app(config_filename: str = 'config.dev.json') -> Flask:
     bootstrap.init_app(app)
     db.init_app(app)
     migrate.init_app(app, db, compare_type=True)
+    login_manager.init_app(app)
+
+    login_manager.login_view = 'auth.login'
+    login_manager.login_message = "É necessário estar logado para acessar esta funcionalidade."
+    login_manager.login_message_category = 'warning'
+    login_manager.refresh_view = 'auth.login'
+    login_manager.needs_refresh_message = ("Para proteger a sua conta, é necessário "
+                                           "logar novamente antes de acessar esta funcionalidade.")
+    login_manager.needs_refresh_message_category = "info"
+
+    app.logger.debug("Registrando o callback do login manager")
+
+    @login_manager.user_loader
+    def load_user(user_id):  # https://flask-login.readthedocs.io/en/latest/#alternative-tokens
+        import uuid
+        from app.models.autenticacao import User
+        identifier, final_password = user_id.split('|', 1)
+        try:
+            auth_id = uuid.UUID(identifier)
+        except ValueError:
+            return None
+        user = User.get_by_id(auth_id)
+        return user if user and user.password.endswith(final_password) else None
 
     app.logger.debug("Definindo processadores de contexto")
+
     @app.context_processor
     def inject_globals():
         return dict(app_config=app.config)

@@ -10,5 +10,10 @@
   "SEND_MAIL": true,
   "EMAIL_PROVIDER": "postmark",
   "POSTMARK_SERVER_TOKEN": "ColoqueOTokenAqui",
-  "EMAIL_SENDER": "seu@email.aqui"
+  "EMAIL_SENDER": "seu@email.aqui",
+  "PASSWORD_MAIUSCULA": false,
+  "PASSWORD_MINUSCULA": false,
+  "PASSWORD_NUMERO": false,
+  "PASSWORD_SIMBOLO": false,
+  "PASSWORD_MIN": 0
 }

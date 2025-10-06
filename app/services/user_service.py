@@ -4,11 +4,12 @@ from enum import Enum
 from typing import Optional
 
 from flask import current_app, render_template, url_for
+from flask_login import login_user, logout_user
 from sqlalchemy.exc import SQLAlchemyError
 
 from app import db
-from .token_service import JWT_action, JWTService, TokenVerificationResult
 from app.models.autenticacao import User
+from .token_service import JWT_action, JWTService
 
 
 class UserOperationStatus(Enum):
@@ -42,6 +43,7 @@ class UserActivationResult:
     status: UserOperationStatus  # Status da operação (SUCCESS, INVALID_TOKEN, USER_NOT_FOUND, etc.)
     user: Optional[User] = None  # Instância do usuário ativado (se sucesso)
     error_message: Optional[str] = None  # Mensagem de erro detalhada (se falha)
+
 
 class UserService:
     """Serviço para operações relacionadas a usuários.
@@ -291,6 +293,83 @@ class UserService:
                 status=UserOperationStatus.SUCCESS,
                 user=usuario
         )
+
+    @classmethod
+    def efetuar_login(cls,
+                      usuario: User,
+                      remember_me: bool = False,
+                      session=None,
+                      auto_commit: bool = True) -> bool:
+        """Efetua o login do usuário no sistema utilizando Flask-Login.
+
+        Args:
+            usuario (User): Instância do usuário
+            remember_me (bool): Se True, mantém o usuário logado por mais tempo
+            session: Sessão SQLAlchemy opcional. Se None, usa a sessão padrão da classe.
+            auto_commit (bool): Se True, faz commit automaticamente. Se False, apenas
+                               atualiza o objeto (útil quando chamado dentro de outra transação).
+
+        Returns:
+            bool: True se o login foi bem-sucedido
+
+        Raises:
+            ValueError: Se o usuário não estiver ativo
+            SQLAlchemyError: Em caso de erro na transação
+        """
+        if session is None:
+            session = cls._default_session
+
+        try:
+            if not UserService.pode_logar(usuario):
+                raise ValueError(f"Usuário {usuario.email} não está ativo")
+
+            # Efetua login usando Flask-Login
+            login_user(usuario, remember=remember_me)
+            current_app.logger.info("Login efetuado para usuário: %s" % (usuario.email,))
+
+            # Atualiza timestamp de último login
+            usuario.ultimo_login = db.func.now()
+
+            if auto_commit:
+                session.commit()
+                current_app.logger.info(
+                    "Informação sobre último login de %s atualizada" % (usuario.email,))
+            else:
+                current_app.logger.info(
+                        "Informação sobre último login de %s marcada para atualizar" % (
+                            usuario.email,))
+
+            return True
+
+        except ValueError:
+            raise  # Re-propaga erro de validação
+        except SQLAlchemyError as e:
+            if auto_commit:
+                session.rollback()
+            current_app.logger.error(
+                    "Erro ao efetuar login do usuário %s: %s" % (usuario.email, str(e)))
+            raise e
+
+    @staticmethod
+    def efetuar_logout(usuario: User) -> bool:
+        """Efetua o logout do usuário do sistema utilizando Flask-Login.
+
+        Args:
+            usuario (User): Instância do usuário
+
+        Returns:
+            bool: True se o logout foi bem-sucedido
+        """
+        try:
+            user_email = usuario.email  # Captura antes do logout
+            logout_user()
+
+            current_app.logger.info("Logout efetuado para usuário: %s" % (user_email,))
+            return True
+
+        except Exception as e:
+            current_app.logger.error("Erro ao efetuar logout: %s" % (str(e),))
+            return False
 
     @staticmethod
     def _enviar_email_ativacao(usuario: User, email_service) -> tuple[str, bool]:

@@ -46,6 +46,36 @@ Para utilizar um arquivo de configuração diferente, especifique o nome do arqu
 - **Exemplo**: `"e92a984a9a1ced6c12d532d2f1c7c61c81552526547e1eeb647ed8a3bff4aabb"`
 - **⚠️ Importante**: Em produção, sempre defina uma chave fixa e segura. Use `os.urandom(32).hex()` para gerar uma
 
+#### `PASSWORD_MIN` (opcional)
+- **Tipo**: Integer
+- **Padrão**: `0` (sem validação de tamanho mínimo)
+- **Descrição**: Comprimento mínimo obrigatório para senhas de usuários
+- **Exemplo**: `8`
+
+#### `PASSWORD_MAIUSCULA` (opcional)
+- **Tipo**: Boolean
+- **Padrão**: `false`
+- **Descrição**: Se `true`, senhas devem conter pelo menos uma letra maiúscula (A-Z)
+- **Exemplo**: `true`
+
+#### `PASSWORD_MINUSCULA` (opcional)
+- **Tipo**: Boolean
+- **Padrão**: `false`
+- **Descrição**: Se `true`, senhas devem conter pelo menos uma letra minúscula (a-z)
+- **Exemplo**: `true`
+
+#### `PASSWORD_NUMERO` (opcional)
+- **Tipo**: Boolean
+- **Padrão**: `false`
+- **Descrição**: Se `true`, senhas devem conter pelo menos um número (0-9)
+- **Exemplo**: `true`
+
+#### `PASSWORD_SIMBOLO` (opcional)
+- **Tipo**: Boolean
+- **Padrão**: `false`
+- **Descrição**: Se `true`, senhas devem conter pelo menos um símbolo especial (!@#$%&*, etc.)
+- **Exemplo**: `true`
+
 ### Banco de Dados
 
 #### `SQLALCHEMY_DATABASE_URI` (obrigatório)
@@ -154,6 +184,11 @@ Para utilizar um arquivo de configuração diferente, especifique o nome do arqu
   "TIMEZONE": "America/Sao_Paulo",
   "SQLALCHEMY_DATABASE_URI": "sqlite:///mymovie.db",
   "SECRET_KEY": "e92a984a9a1ced6c12d532d2f1c7c61c81552526547e1eeb647ed8a3bff4aabb",
+  "PASSWORD_MIN": 8,
+  "PASSWORD_MAIUSCULA": true,
+  "PASSWORD_MINUSCULA": true,
+  "PASSWORD_NUMERO": true,
+  "PASSWORD_SIMBOLO": false,
   "EMAIL_SENDER": "dev@localhost",
   "SEND_EMAIL": false
 }
@@ -171,6 +206,11 @@ Para utilizar um arquivo de configuração diferente, especifique o nome do arqu
   "TIMEZONE": "America/Sao_Paulo",
   "SQLALCHEMY_DATABASE_URI": "postgresql://user:pass@db.example.com/mymoviedb",
   "SECRET_KEY": "YOUR-SECURE-RANDOM-SECRET-KEY-HERE",
+  "PASSWORD_MIN": 12,
+  "PASSWORD_MAIUSCULA": true,
+  "PASSWORD_MINUSCULA": true,
+  "PASSWORD_NUMERO": true,
+  "PASSWORD_SIMBOLO": true,
   "EMAIL_SENDER": "noreply@mymoviedb.com",
   "EMAIL_SENDER_NAME": "MyMovieDB",
   "SEND_EMAIL": true,
@@ -191,6 +231,11 @@ Para utilizar um arquivo de configuração diferente, especifique o nome do arqu
   "TIMEZONE": "America/Sao_Paulo",
   "SQLALCHEMY_DATABASE_URI": "postgresql://user:pass@db.example.com/mymoviedb",
   "SECRET_KEY": "YOUR-SECURE-RANDOM-SECRET-KEY-HERE",
+  "PASSWORD_MIN": 12,
+  "PASSWORD_MAIUSCULA": true,
+  "PASSWORD_MINUSCULA": true,
+  "PASSWORD_NUMERO": true,
+  "PASSWORD_SIMBOLO": true,
   "EMAIL_SENDER": "noreply@gmail.com",
   "EMAIL_SENDER_NAME": "MyMovieDB",
   "SEND_EMAIL": true,

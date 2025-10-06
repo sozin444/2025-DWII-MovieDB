@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
+from flask_login import UserMixin
 from sqlalchemy import DateTime, select, String
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -10,7 +11,7 @@ from app.services.email_service import EmailValidationService
 from .mixins import AuditMixin, BasicRepositoryMixin
 
 
-class User(db.Model, BasicRepositoryMixin, AuditMixin):
+class User(db.Model, BasicRepositoryMixin, AuditMixin, UserMixin):
     __tablename__ = "usuarios"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
@@ -21,6 +22,9 @@ class User(db.Model, BasicRepositoryMixin, AuditMixin):
     ativo: Mapped[bool] = mapped_column(default=False, server_default='false')
     dta_validacao_email: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True),
                                                                     default=None)
+
+    ultimo_login: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True),
+                                                             default=None)
 
     @property
     def email(self):
@@ -77,3 +81,19 @@ class User(db.Model, BasicRepositoryMixin, AuditMixin):
             typing.Optional[User]: O usuário encontrado, ou None.
         """
         return db.session.scalar(select(cls).where(User.email_normalizado == email))
+
+    @property
+    def is_active(self):
+        """Indica se o usuário está ativo.
+
+        Returns:
+            bool: True se o usuário está ativo, False caso contrário.
+        """
+        return self.ativo
+
+    def get_id(self):  # https://flask-login.readthedocs.io/en/latest/#alternative-tokens
+        return f"{str(self.id)}|{self.password[-15:]}"
+
+    def check_password(self, password) -> bool:
+        from werkzeug.security import check_password_hash
+        return check_password_hash(str(self.password_hash), password)

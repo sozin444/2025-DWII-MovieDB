@@ -16,3 +16,5 @@ postmarker==1.0
 # Para gerar JWTs
 # https://pyjwt.readthedocs.io/en/stable/
 PyJWT==2.10.1
+# https://flask-login.readthedocs.io/en/latest/
+flask-login==0.6.3

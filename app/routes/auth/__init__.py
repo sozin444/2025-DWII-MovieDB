@@ -1,6 +1,11 @@
-from flask import Blueprint, current_app, flash, redirect, render_template, url_for
+from urllib.parse import urlsplit
 
-from app.forms.auth import RegistrationForm
+from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
+from flask_login import current_user, login_required
+
+from app import anonymous_required
+from app.forms.auth import LoginForm, RegistrationForm
+from app.models import User
 from app.services.user_service import UserOperationStatus, UserService
 
 auth_bp = Blueprint(name='auth',
@@ -10,6 +15,7 @@ auth_bp = Blueprint(name='auth',
 
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
+@anonymous_required
 def register():
     """Exibe o formulário de registro de usuário e processa o cadastro.
 
@@ -35,7 +41,9 @@ def register():
         )
 
         if resultado.status == UserOperationStatus.SUCCESS:
-            flash("Cadastro efetuado com sucesso.", category='success')
+            flash("Cadastro efetuado com sucesso. Antes de logar na aplicação, ative a "
+                  "sua conta seguindo as instruções da mensagem de email que lhe foi "
+                  "enviada.", category='success')
             return redirect(url_for('root.index'))
         else:
             flash(f"Erro ao registrar usuário: {resultado.error_message}", category='danger')
@@ -46,6 +54,7 @@ def register():
 
 
 @auth_bp.route('/ativar_usuario/<token>')
+@anonymous_required
 def ativar_usuario(token):
     """Valida o email do usuário a partir de um token JWT enviado na URL.
 
@@ -63,9 +72,75 @@ def ativar_usuario(token):
 
     if resultado.status == UserOperationStatus.SUCCESS:
         flash(f"Conta ativada e email {resultado.user.email} validado!", category='success')
+        return redirect(url_for('auth.login'))
     elif resultado.status == UserOperationStatus.USER_ALREADY_ACTIVE:
         flash(f"Conta já havia sido ativada e o email {resultado.user.email} validado.",
               category='info')
+        return redirect(url_for('auth.login'))
     else:
         flash("Processo de ativação da conta falhou. Inicie uma nova ativação.", category='warning')
+    return redirect(url_for('root.index'))
+
+
+@auth_bp.route('/login', methods=['GET', 'POST'])
+@anonymous_required
+def login():
+    """Exibe o formulário de login e processa a autenticação do usuário.
+
+    Usuários já autenticados não podem acessar esta rota. Se o formulário for
+    enviado e validado, verifica as credenciais do usuário. Se o usuário existir,
+    estiver ativo e a senha estiver correta, realiza o login. Se efetuar o login
+    redireciona para a página desejada ou para a página inicial. Caso contrário,
+    exibe mensagens de erro e permanece na página de login.
+
+    Returns:
+        flask.Response: Redireciona para a página desejada, página inicial ou
+            renderiza o template de login.
+    """
+    form = LoginForm()
+
+    if form.validate_on_submit():
+        from app.services.email_service import EmailValidationService
+
+        try:
+            email_normalizado = EmailValidationService.normalize(form.email.data)
+        except ValueError:
+            flash("Email ou senha incorretos", category='warning')
+            return render_template('auth/web/login.jinja2',
+                                   title="Login",
+                                   form=form)
+
+        usuario = User.get_by_email(email_normalizado)
+
+        if usuario is None or not usuario.check_password(form.password.data):
+            flash("Email ou senha incorretos", category='warning')
+        elif not UserService.pode_logar(usuario):
+            flash("Sua conta ainda não foi ativada. Verifique seu email.", category='warning')
+        else:
+            UserService.efetuar_login(usuario, remember_me=form.remember_me.data)
+            flash(f"Usuario {usuario.email} logado", category='success')
+
+            next_page = request.args.get('next')
+            if not next_page or urlsplit(next_page).netloc != '':
+                next_page = url_for('root.index')
+            return redirect(next_page)
+
+    return render_template('auth/web/login.jinja2',
+                           title="Login",
+                           form=form)
+
+
+@auth_bp.route('/logout')
+@login_required
+def logout():
+    """Realiza o logout do usuário autenticado.
+
+    Encerra a sessão do usuário, exibe uma mensagem de sucesso e redireciona
+    para a página inicial.
+
+    Returns:
+        flask.Response: Redireciona para a página inicial após logout.
+    """
+    UserService.efetuar_logout(current_user)
+    flash("Logout efetuado com sucesso!", category='success')
     return redirect(url_for('root.index'))
