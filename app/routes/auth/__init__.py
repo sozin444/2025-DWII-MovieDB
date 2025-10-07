@@ -120,6 +120,15 @@ def login():
             UserService.efetuar_login(usuario, remember_me=form.remember_me.data)
             flash(f"Usuario {usuario.email} logado", category='success')
 
+            # Verifica a idade da senha
+            max_age = current_app.config.get('PASSWORD_MAX_AGE', 0)
+            if max_age > 0:
+                idade_senha = UserService.verificar_idade_senha(usuario)
+                if idade_senha is not None and idade_senha > max_age:
+                    flash(f"Sua senha tem {idade_senha} dias. Por motivos de segurança, "
+                          f"recomendamos que você altere sua senha.",
+                          category='warning')
+
             next_page = request.args.get('next')
             if not next_page or urlsplit(next_page).netloc != '':
                 next_page = url_for('root.index')

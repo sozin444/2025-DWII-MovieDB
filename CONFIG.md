@@ -76,6 +76,13 @@ Para utilizar um arquivo de configuração diferente, especifique o nome do arqu
 - **Descrição**: Se `true`, senhas devem conter pelo menos um símbolo especial (!@#$%&*, etc.)
 - **Exemplo**: `true`
 
+#### `PASSWORD_MAX_AGE` (opcional)
+- **Tipo**: Integer
+- **Padrão**: `0` (sem validação de idade)
+- **Descrição**: Idade máxima permitida para senhas, em dias. Se a senha for mais antiga que este valor, o usuário receberá um aviso após o login recomendando a troca. Se `0` ou não definido, não haverá validação de idade de senha
+- **Exemplo**: `90` (90 dias)
+- **Nota**: Este é um aviso de segurança que não bloqueia o login, apenas informa ao usuário
+
 ### Banco de Dados
 
 #### `SQLALCHEMY_DATABASE_URI` (obrigatório)
@@ -211,6 +218,7 @@ Para utilizar um arquivo de configuração diferente, especifique o nome do arqu
   "PASSWORD_MINUSCULA": true,
   "PASSWORD_NUMERO": true,
   "PASSWORD_SIMBOLO": true,
+  "PASSWORD_MAX_AGE": 90,
   "EMAIL_SENDER": "noreply@mymoviedb.com",
   "EMAIL_SENDER_NAME": "MyMovieDB",
   "SEND_EMAIL": true,
@@ -236,6 +244,7 @@ Para utilizar um arquivo de configuração diferente, especifique o nome do arqu
   "PASSWORD_MINUSCULA": true,
   "PASSWORD_NUMERO": true,
   "PASSWORD_SIMBOLO": true,
+  "PASSWORD_MAX_AGE": 90,
   "EMAIL_SENDER": "noreply@gmail.com",
   "EMAIL_SENDER_NAME": "MyMovieDB",
   "SEND_EMAIL": true,

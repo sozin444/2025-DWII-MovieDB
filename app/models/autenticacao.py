@@ -22,6 +22,8 @@ class User(db.Model, BasicRepositoryMixin, AuditMixin, UserMixin):
     ativo: Mapped[bool] = mapped_column(default=False, server_default='false')
     dta_validacao_email: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True),
                                                                     default=None)
+    dta_ultima_alteracao_senha: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True),
+                                                                           default=None)
 
     ultimo_login: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True),
                                                              default=None)
@@ -62,13 +64,14 @@ class User(db.Model, BasicRepositoryMixin, AuditMixin, UserMixin):
 
     @password.setter
     def password(self, value):
-        """Armazena o hash da senha do usuário.
+        """Armazena o hash da senha do usuário e registra a data de alteração.
 
         Args:
             value (str): Senha em texto plano a ser hashada e armazenada.
         """
         from werkzeug.security import generate_password_hash
         self.password_hash = generate_password_hash(value)
+        self.dta_ultima_alteracao_senha = datetime.now()
 
     @classmethod
     def get_by_email(cls, email: str) -> Optional['User']:

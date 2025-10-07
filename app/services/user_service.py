@@ -252,6 +252,23 @@ class UserService:
         return True
 
     @staticmethod
+    def verificar_idade_senha(usuario: User) -> Optional[int]:
+        """Verifica a idade da senha em dias.
+
+        Args:
+            usuario (User): Instância do usuário
+
+        Returns:
+            Optional[int]: Idade da senha em dias, ou None se não houver data registrada
+        """
+        if usuario.dta_ultima_alteracao_senha is None:
+            return None
+
+        from datetime import datetime
+        idade = datetime.now() - usuario.dta_ultima_alteracao_senha
+        return idade.days
+
+    @staticmethod
     def ativar_usuario_por_token(token: str) -> UserActivationResult:
         """Valida o email de um usuário através de um token JWT.
 
