@@ -2,6 +2,11 @@
 {% from 'bootstrap5/utils.html' import render_icon %}
 {% extends "_layout.jinja2" %}
 
+{% block styles %}
+    {{ super() }}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
+{% endblock %}
+
 {% block content %}
     <div class="container">
         <div class="row justify-content-center">
@@ -63,4 +68,148 @@
             </div>
         </div>
     </div>
+
+    <!-- Modal de Crop de Imagem -->
+    <div class="modal fade" id="cropModal" tabindex="-1" aria-labelledby="cropModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="cropModalLabel">Ajustar foto de perfil</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div style="max-height: 400px;">
+                                <img id="cropImage" style="max-width: 100%;">
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="text-center">
+                                <p class="text-muted mb-2">Preview:</p>
+                                <div id="cropPreview" style="width: 200px; height: 300px; overflow: hidden; margin: 0 auto; border: 1px solid #ddd;"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" id="cropConfirm">Confirmar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+    {{ super() }}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
+    <script>
+        let cropper = null;
+        const cropModal = new bootstrap.Modal(document.getElementById('cropModal'));
+        const fileInput = document.querySelector('input[name="foto"]');
+        const cropImage = document.getElementById('cropImage');
+        const cropPreview = document.getElementById('cropPreview');
+        const cropConfirm = document.getElementById('cropConfirm');
+
+        // Detecta quando o usuário seleciona uma imagem
+        fileInput.addEventListener('change', function(e) {
+            const files = e.target.files;
+            if (files && files.length > 0) {
+                const file = files[0];
+
+                // Valida se é imagem
+                if (!file.type.match('image.*')) {
+                    alert('Por favor, selecione um arquivo de imagem válido.');
+                    fileInput.value = '';
+                    return;
+                }
+
+                // Lê o arquivo e abre o modal
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    cropImage.src = event.target.result;
+                    cropModal.show();
+
+                    // Inicializa o cropper quando o modal é mostrado
+                    document.getElementById('cropModal').addEventListener('shown.bs.modal', function() {
+                        if (cropper) {
+                            cropper.destroy();
+                        }
+
+                        cropper = new Cropper(cropImage, {
+                            aspectRatio: 2 / 3,  // Aspect ratio 2:3
+                            viewMode: 1,
+                            autoCropArea: 1,
+                            responsive: true,
+                            preview: cropPreview,
+                            ready: function() {
+                                // Cropper está pronto
+                            }
+                        });
+                    }, { once: true });
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Confirma o crop
+        cropConfirm.addEventListener('click', function() {
+            if (!cropper) {
+                return;
+            }
+
+            // Obtém a imagem cropada como canvas
+            const canvas = cropper.getCroppedCanvas({
+                maxWidth: 2048,
+                maxHeight: 3072,
+                imageSmoothingQuality: 'high'
+            });
+
+            // Converte para blob e depois para base64
+            canvas.toBlob(function(blob) {
+                const reader = new FileReader();
+                reader.onloadend = function() {
+                    const base64data = reader.result;
+
+                    // Armazena no campo hidden
+                    let hiddenInput = document.querySelector('input[name="foto_cropada"]');
+                    if (!hiddenInput) {
+                        hiddenInput = document.createElement('input');
+                        hiddenInput.type = 'hidden';
+                        hiddenInput.name = 'foto_cropada';
+                        fileInput.form.appendChild(hiddenInput);
+                    }
+                    hiddenInput.value = base64data;
+
+                    // Fecha o modal
+                    cropModal.hide();
+
+                    // Destrói o cropper
+                    if (cropper) {
+                        cropper.destroy();
+                        cropper = null;
+                    }
+                };
+                reader.readAsDataURL(blob);
+            }, 'image/jpeg', 0.95);
+        });
+
+        // Limpa o cropper quando o modal é fechado sem confirmar
+        document.getElementById('cropModal').addEventListener('hidden.bs.modal', function() {
+            if (cropper) {
+                cropper.destroy();
+                cropper = null;
+            }
+        });
+
+        // Ao submeter o formulário, limpa o campo de arquivo se houver foto cropada
+        fileInput.form.addEventListener('submit', function(e) {
+            const fotoCropada = document.querySelector('input[name="foto_cropada"]');
+            if (fotoCropada && fotoCropada.value) {
+                // Tem foto cropada, então limpa o campo de arquivo para não enviar duplicado
+                fileInput.value = '';
+            }
+        });
+    </script>
 {% endblock %}

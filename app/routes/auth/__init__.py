@@ -364,10 +364,14 @@ def profile():
         # Processa foto do upload
         nova_foto = form.foto.data if form.foto.data else None
 
+        # Captura a foto cropada do campo hidden (se presente)
+        foto_cropada = request.form.get('foto_cropada', None)
+
         resultado = UserService.atualizar_perfil(
                 usuario=current_user,
                 novo_nome=form.nome.data,
                 nova_foto=nova_foto,
+                foto_cropada_base64=foto_cropada,
                 remover_foto=form.remover_foto.data
         )
 

@@ -1,5 +1,6 @@
 import io
-from base64 import b64encode
+import re
+from base64 import b64encode, b64decode
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
@@ -98,6 +99,73 @@ class ImageProcessingService:
 
         except (AttributeError, OSError) as e:
             raise ImageProcessingError(f"Erro ao processar arquivo de imagem: {str(e)}") from e
+
+    @staticmethod
+    def processar_base64(base64_string: str,
+                         avatar_size: Optional[int] = None,
+                         max_file_size: Optional[int] = None,
+                         max_dimensions: Optional[Tuple[int, int]] = None) -> ImageProcessingResult:
+        """Processa uma imagem em formato base64 (data URI ou base64 puro).
+
+        Args:
+            base64_string (str): String base64 da imagem (pode incluir data URI prefix).
+            avatar_size (Optional[int]): Tamanho do avatar em pixels.
+            max_file_size (Optional[int]): Tamanho máximo do arquivo em bytes.
+            max_dimensions (Optional[Tuple[int, int]]): Dimensões máximas permitidas.
+
+        Returns:
+            ImageProcessingResult: Resultado do processamento da imagem.
+
+        Raises:
+            ImageProcessingError: Em caso de erro no processamento.
+            ValueError: Para dados inválidos.
+        """
+        if not base64_string:
+            raise ValueError("String base64 vazia")
+
+        # Configurações com fallbacks
+        avatar_size = avatar_size or current_app.config.get('AVATAR_SIZE',
+                                                            ImageProcessingService.DEFAULT_AVATAR_SIZE)
+        max_file_size = max_file_size or current_app.config.get('MAX_IMAGE_SIZE',
+                                                                ImageProcessingService.DEFAULT_MAX_FILE_SIZE)
+        max_dimensions = max_dimensions or current_app.config.get('MAX_IMAGE_DIMENSIONS',
+                                                                  ImageProcessingService.DEFAULT_MAX_DIMENSIONS)
+
+        try:
+            # Remove o prefixo data URI se presente (ex: "data:image/jpeg;base64,")
+            mime_type = 'image/jpeg'  # default
+            if base64_string.startswith('data:'):
+                match = re.match(r'data:(image/[a-z]+);base64,(.+)', base64_string)
+                if match:
+                    mime_type = match.group(1)
+                    base64_string = match.group(2)
+                else:
+                    raise ValueError("Formato de data URI inválido")
+
+            # Decodifica base64
+            foto_data = b64decode(base64_string)
+
+            if not foto_data:
+                raise ValueError("Dados de imagem vazios após decodificação")
+
+            # Validação de tamanho
+            if len(foto_data) > max_file_size:
+                raise ValueError(
+                    f"Arquivo muito grande. Máximo permitido: "
+                    f"{max_file_size / (1024 * 1024):.1f}MB")
+
+            # Processa a imagem
+            return ImageProcessingService._processar_imagem_bytes(
+                foto_data,
+                mime_type,
+                avatar_size,
+                max_dimensions
+            )
+
+        except (ValueError, TypeError) as e:
+            if isinstance(e, ValueError):
+                raise
+            raise ImageProcessingError(f"Erro ao decodificar base64: {str(e)}") from e
 
     @staticmethod
     def _processar_imagem_bytes(foto_data: bytes,
