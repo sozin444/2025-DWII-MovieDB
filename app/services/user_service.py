@@ -396,6 +396,64 @@ class UserService:
             current_app.logger.error("Erro ao efetuar logout: %s" % (str(e),))
             return False
 
+    @classmethod
+    def atualizar_perfil(cls,
+                         usuario: User,
+                         novo_nome: str,
+                         session=None,
+                         auto_commit: bool = True) -> UserActivationResult:
+        """Atualiza o perfil do usuário (nome).
+
+        Args:
+            usuario (User): Instância do usuário
+            novo_nome (str): Novo nome do usuário
+            session: Sessão SQLAlchemy opcional. Se None, usa a sessão padrão da classe.
+            auto_commit (bool): Se True, faz commit automaticamente. Se False, apenas
+                               atualiza o objeto (útil quando chamado dentro de outra transação).
+
+        Returns:
+            UserActivationResult: Resultado da operação
+        """
+        if session is None:
+            session = cls._default_session
+
+        try:
+            # Valida que o nome não está vazio
+            if not novo_nome or not novo_nome.strip():
+                return UserActivationResult(
+                        status=UserOperationStatus.UNKNOWN,
+                        error_message="Nome não pode ser vazio"
+                )
+
+            # Atualiza o nome
+            nome_anterior = usuario.nome
+            usuario.nome = novo_nome.strip()
+
+            if auto_commit:
+                session.commit()
+                current_app.logger.info(
+                        "Perfil atualizado para usuário %s: nome alterado de '%s' para '%s'" %
+                        (usuario.email, nome_anterior, usuario.nome))
+            else:
+                current_app.logger.debug(
+                        "Perfil marcado para atualização (sem commit) para usuário %s" %
+                        (usuario.email,))
+
+            return UserActivationResult(
+                    status=UserOperationStatus.SUCCESS,
+                    user=usuario
+            )
+
+        except SQLAlchemyError as e:
+            if auto_commit:
+                session.rollback()
+            current_app.logger.error(
+                    "Erro ao atualizar perfil do usuário %s: %s" % (usuario.email, str(e)))
+            return UserActivationResult(
+                    status=UserOperationStatus.DATABASE_ERROR,
+                    error_message=str(e)
+            )
+
     @staticmethod
     def solicitar_reset_senha(email: str, email_service) -> PasswordResetResult:
         """Envia email com token para alteração de senha.

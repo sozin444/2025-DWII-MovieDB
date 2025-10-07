@@ -1,10 +1,11 @@
 from urllib.parse import urlsplit
 
 from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
-from flask_login import current_user, login_required
+from flask_login import current_user, fresh_login_required, login_required
 
 from app import anonymous_required
-from app.forms.auth import AskToResetPasswordForm, LoginForm, RegistrationForm, SetNewPasswordForm
+from app.forms.auth import AskToResetPasswordForm, LoginForm, ProfileForm, RegistrationForm, \
+    SetNewPasswordForm
 from app.models import User
 from app.services.user_service import UserOperationStatus, UserService
 
@@ -219,7 +220,7 @@ def reset_password(token):
             flash("Sua senha foi redefinida com sucesso", category='success')
             return redirect(url_for('auth.login'))
         elif resultado.status == UserOperationStatus.TOKEN_EXPIRED:
-            flash("O token expirou. Solicite uma nova redefinição de senha", category='warning')
+            flash("A operação demorou mais do que o esperado. Solicite uma nova redefinição de senha", category='warning')
             return redirect(url_for('auth.new_password'))
         elif resultado.status == UserOperationStatus.INVALID_TOKEN:
             flash("Token inválido ou expirado", category='warning')
@@ -231,4 +232,52 @@ def reset_password(token):
     return render_template('auth/web/new_password.jinja2',
                            title="Redefinir senha",
                            title_card="Escolha uma nova senha",
+                           form=form)
+
+
+@auth_bp.route('/', methods=['GET', 'POST'])
+@auth_bp.route('/profile', methods=['GET', 'POST'])
+@fresh_login_required
+def profile():
+    """Exibe e processa o formulário de edição do perfil do usuário autenticado.
+
+    Permite ao usuário alterar seu nome. O email não pode ser alterado por segurança.
+    Valida e processa as alterações, salvando no banco de dados e exibindo mensagens
+    de sucesso ou erro.
+
+    Returns:
+        flask.Response: Redireciona para a página de perfil após alterações ou
+            renderiza o formulário de perfil.
+    """
+    form = ProfileForm(user=current_user)
+
+    # Preenche o formulário com dados atuais do usuário no GET
+    if request.method == 'GET':
+        form.id.data = str(current_user.id)
+        form.nome.data = current_user.nome
+        form.email.data = current_user.email
+
+    if form.validate_on_submit():
+        resultado = UserService.atualizar_perfil(
+                usuario=current_user,
+                novo_nome=form.nome.data
+        )
+
+        if resultado.status == UserOperationStatus.SUCCESS:
+            flash("Perfil atualizado com sucesso", category='success')
+        else:
+            flash(f"Erro ao atualizar perfil: {resultado.error_message}",
+                  category='danger')
+
+        return redirect(url_for('root.index'))
+
+    # Se chegou aqui e é POST, a validação falhou
+    # Restaura campos imutáveis aos valores corretos antes de renderizar
+    if request.method == 'POST':
+        form.id.data = str(current_user.id)
+        form.email.data = current_user.email
+
+    return render_template('auth/web/profile.jinja2',
+                           title="Perfil do usuário",
+                           title_card="Altere seus dados",
                            form=form)

@@ -1,0 +1,43 @@
+{% from 'bootstrap5/form.html' import render_form, render_field %}
+{% from 'bootstrap5/utils.html' import render_icon %}
+{% extends "_layout.jinja2" %}
+
+{% block content %}
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-12 col-sm-12 col-md-12 col-lg-10 col-xl-8 col-xxl-6">
+                <form method="POST" novalidate>
+                    {{ form.csrf_token() }}
+                    {{ form.id() }}
+                    <div class="card shadow-lg my-5">
+                        <div class="card-header px-5 py-4">
+                            <h2 class="fw-bold mb-4 card-title">{{ title_card }}</h2>
+                        </div>
+                        <div class="card-body px-5 py-4">
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    {{ render_field(form.nome) }}
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-12">
+                                    {{ form.email.label(class="form-label text-muted") }}
+                                    <div class="input-group">
+                                        <span class="input-group-text">{{ render_icon('lock-fill') }}</span>
+                                        {{ form.email(class="form-control", readonly=true, style="background-color: #f8f9fa; color: #6c757d;") }}
+                                    </div>
+                                    <div class="form-text text-muted">
+                                        <small>O email não pode ser alterado</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="card-footer px-5 py-3 d-flex justify-content-end">
+                            {{ render_field(form.submit, button_style='primary', button_size='md') }}
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+{% endblock %}
