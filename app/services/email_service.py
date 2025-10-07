@@ -1,3 +1,12 @@
+"""Serviço de envio e validação de emails.
+
+Este módulo fornece funcionalidades para envio de emails através de múltiplos provedores
+(Postmark, SMTP, Mock) e validação de endereços de email.
+
+Classes principais:
+    - EmailService: Serviço principal para envio de emails
+    - EmailValidationService: Utilitários para validação e normalização de emails
+"""
 from typing import Any, Dict, Optional
 
 from flask import current_app
@@ -58,6 +67,13 @@ class EmailService:
                  provider: EmailProvider,
                  default_from_email: str,
                  default_from_name: str = None):
+        """Inicializa o serviço de email.
+
+        Args:
+            provider (EmailProvider): Provedor de email a ser utilizado (Postmark, SMTP ou Mock).
+            default_from_email (str): Endereço de email remetente padrão.
+            default_from_name (str): Nome do remetente padrão. Se None, usa apenas o email.
+        """
         self.provider = provider
         self.default_from_email = default_from_email
         self.default_from_name = default_from_name

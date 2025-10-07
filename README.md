@@ -1,3 +1,50 @@
+# MyMovieDB
+
+Sistema de gerenciamento de filmes com autenticação completa de usuários.
+
+## Funcionalidades
+
+### Autenticação e Gerenciamento de Usuários
+- **Registro de usuários** com validação de email obrigatória
+- **Login/Logout** com suporte a "Permanecer conectado"
+- **Validação de email** via token JWT enviado por email
+- **Reset de senha** com link seguro por email
+- **Controle de idade de senha** configurável (aviso quando senha expira)
+- **Invalidação automática de sessão** ao trocar senha
+
+### Perfil de Usuário
+- **Upload de foto de perfil** com validação de formato e tamanho
+- **Crop de imagem** com aspect ratio fixo 2:3 usando Cropper.js
+- **Geração automática de avatar** redimensionado
+- **Edição de nome** de usuário
+- Email imutável após registro (por segurança)
+
+### Segurança
+- **Validação de complexidade de senha** configurável:
+  - Tamanho mínimo
+  - Letras maiúsculas/minúsculas
+  - Números
+  - Símbolos especiais
+- **Tokens JWT** com expiração para validação e reset
+- **Normalização de emails** para evitar duplicatas
+
+### Email
+- **Suporte a múltiplos provedores**:
+  - Postmark (produção)
+  - SMTP genérico (Gmail, etc.)
+  - Mock (desenvolvimento/testes)
+- **Templates HTML** para emails transacionais
+
+### Tecnologias Utilizadas
+- **Backend**: Flask, SQLAlchemy, Flask-Login, Flask-Migrate
+- **Frontend**: Bootstrap 5, Cropper.js (via CDN)
+- **Banco de dados**: SQLite (dev) / PostgreSQL (produção)
+- **Autenticação**: JWT, Werkzeug password hashing
+- **Email**: Postmark API / SMTP
+- **Processamento de imagem**: Pillow (PIL)
+
+---
+
 # Preparando a aplicação
 
 Todas as operações devem ser executadas:

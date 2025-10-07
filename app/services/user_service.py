@@ -1,3 +1,13 @@
+"""Serviço de gerenciamento de usuários.
+
+Este módulo fornece a camada de serviço para todas as operações relacionadas a usuários,
+incluindo registro, autenticação, ativação de conta, reset de senha, e gerenciamento de perfil.
+
+Classes principais:
+    - UserService: Serviço principal com métodos para operações de usuário
+    - UserOperationStatus: Enum com status de resultados de operações
+    - UserActivationResult: Dataclass com resultado de operações de usuário
+"""
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -441,8 +451,11 @@ class UserService:
                         "Nome alterado para usuário %s: '%s' -> '%s'" %
                         (usuario.email, nome_anterior, usuario.nome))
 
-            # Processa foto
-            # Prioridade: foto_cropada_base64 > remover_foto > nova_foto
+            # Processa foto com sistema de priorização:
+            # 1. foto_cropada_base64: Se presente, usa a imagem já processada pelo crop no frontend
+            # 2. remover_foto: Se True, remove a foto atual
+            # 3. nova_foto: Upload de arquivo tradicional sem crop
+            # Este sistema evita conflitos quando múltiplas ações são enviadas
             if foto_cropada_base64:
                 from app.services.imageprocessing_service import ImageProcessingError, ImageProcessingService
                 try:

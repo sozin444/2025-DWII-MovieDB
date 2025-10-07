@@ -128,6 +128,15 @@ class SMTPProvider(EmailProvider):
 
     def __init__(self, smtp_server: str, smtp_port: int, username: str, password: str,
                  use_tls: bool = True):
+        """Inicializa o provedor SMTP.
+
+        Args:
+            smtp_server (str): Endereço do servidor SMTP (ex: "smtp.gmail.com").
+            smtp_port (int): Porta do servidor SMTP (geralmente 587 para TLS ou 465 para SSL).
+            username (str): Nome de usuário para autenticação SMTP.
+            password (str): Senha para autenticação SMTP.
+            use_tls (bool): Se True, utiliza TLS para conexão segura. Padrão: True.
+        """
         self._smtp_server = smtp_server
         self._smtp_port = smtp_port
         self._username = username
@@ -216,6 +225,11 @@ class MockProvider(EmailProvider):
     """
 
     def __init__(self, log_emails: bool = True):
+        """Inicializa o provedor mock.
+
+        Args:
+            log_emails (bool): Se True, registra emails nos logs da aplicação. Padrão: True.
+        """
         self.log_emails = log_emails
         self.sent_emails = []  # Para testes
 
@@ -277,9 +291,5 @@ class MockProvider(EmailProvider):
         return self.sent_emails.copy()
 
     def clear_sent_emails(self):
-        """Limpa lista de emails enviados.
-
-        Returns:
-            None
-        """
+        """Limpa lista de emails enviados (útil para testes)."""
         self.sent_emails.clear()

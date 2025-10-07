@@ -56,6 +56,11 @@ class SenhaComplexa(object):
     """
 
     def __init__(self):
+        """Inicializa o validador de complexidade de senha.
+
+        Os requisitos são obtidos dinamicamente da configuração da aplicação
+        em tempo de validação via current_app.config.
+        """
         pass
 
     def __call__(self, form, field):

@@ -229,12 +229,19 @@ class ImageProcessingService:
                       avatar_size: int) -> Tuple[bytes, Tuple[int, int]]:
         """Gera avatar redimensionado a partir da imagem.
 
+        Redimensiona a imagem proporcionalmente mantendo o aspect ratio original,
+        de forma que nenhuma dimensão exceda avatar_size. Se a imagem já for menor
+        que o tamanho desejado, não há redimensionamento (evita upscaling).
+
         Args:
             imagem (PIL.Image.Image): Objeto PIL Image.
-            avatar_size (int): Tamanho desejado do avatar.
+            avatar_size (int): Tamanho máximo desejado do avatar (largura ou altura).
 
         Returns:
             typing.Tuple[bytes, typing.Tuple[int, int]]: Tupla contendo (dados_avatar, dimensoes_finais).
+
+        Note:
+            Utiliza Image.Resampling.LANCZOS para alta qualidade no redimensionamento.
         """
         largura, altura = imagem.size
         formato_original = imagem.format

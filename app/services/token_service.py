@@ -1,3 +1,13 @@
+"""Serviço de geração e validação de tokens JWT.
+
+Este módulo fornece funcionalidades para criação e verificação de tokens JWT
+usados para validação de email, reset de senha e autenticação temporária.
+
+Classes principais:
+    - JWTService: Serviço para criação e validação de tokens JWT
+    - JWT_action: Enum com tipos de ações de tokens
+    - TokenVerificationResult: Dataclass com resultado de verificação de token
+"""
 from dataclasses import dataclass
 from enum import Enum
 from time import time

@@ -1,3 +1,11 @@
+"""Módulo de modelos de autenticação.
+
+Define o modelo User e funcionalidades relacionadas à autenticação de usuários,
+incluindo gerenciamento de senhas, validação de email, e upload de fotos de perfil.
+
+Classes principais:
+    - User: Modelo principal de usuário com autenticação e perfil
+"""
 import uuid
 from base64 import b64decode
 from datetime import datetime
@@ -101,10 +109,30 @@ class User(db.Model, BasicRepositoryMixin, AuditMixin, UserMixin):
         """
         return self.ativo
 
-    def get_id(self):  # https://flask-login.readthedocs.io/en/latest/#alternative-tokens
+    def get_id(self):
+        """Retorna identificador único para o Flask-Login com invalidação automática de sessão.
+
+        Implementa token alternativo combinando ID do usuário com parte do hash da senha.
+        Quando a senha é alterada, o hash muda e todas as sessões anteriores são invalidadas
+        automaticamente.
+
+        Returns:
+            str: String no formato "{user_id}|{últimos_15_chars_do_hash}".
+
+        References:
+            https://flask-login.readthedocs.io/en/latest/#alternative-tokens
+        """
         return f"{str(self.id)}|{self.password[-15:]}"
 
     def check_password(self, password) -> bool:
+        """Verifica se a senha fornecida corresponde ao hash armazenado.
+
+        Args:
+            password (str): Senha em texto plano a ser verificada.
+
+        Returns:
+            bool: True se a senha estiver correta, False caso contrário.
+        """
         from werkzeug.security import check_password_hash
         return check_password_hash(str(self.password_hash), password)
 
