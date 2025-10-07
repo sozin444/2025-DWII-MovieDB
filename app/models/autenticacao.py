@@ -1,13 +1,15 @@
 import uuid
+from base64 import b64decode
 from datetime import datetime
 from typing import Optional
 
 from flask_login import UserMixin
-from sqlalchemy import DateTime, select, String
+from sqlalchemy import DateTime, select, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app import db
 from app.services.email_service import EmailValidationService
+from app.services.imageprocessing_service import ImageProcessingService
 from .mixins import AuditMixin, BasicRepositoryMixin
 
 
@@ -27,6 +29,11 @@ class User(db.Model, BasicRepositoryMixin, AuditMixin, UserMixin):
 
     ultimo_login: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True),
                                                              default=None)
+
+    com_foto: Mapped[bool] = mapped_column(default=False, server_default='false')
+    foto_base64: Mapped[Optional[str]] = mapped_column(Text, default=None)
+    avatar_base64: Mapped[Optional[str]] = mapped_column(Text, default=None)
+    foto_mime: Mapped[Optional[str]] = mapped_column(String(32), default=None)
 
     @property
     def email(self):
@@ -100,3 +107,65 @@ class User(db.Model, BasicRepositoryMixin, AuditMixin, UserMixin):
     def check_password(self, password) -> bool:
         from werkzeug.security import check_password_hash
         return check_password_hash(str(self.password_hash), password)
+
+    @property
+    def foto(self) -> tuple[bytes | None, str | None]:
+        """Retorna a foto original do usuário em bytes e o tipo MIME.
+
+        Returns:
+            tuple[bytes | None, str | None]: Tupla contendo os bytes da foto e o tipo MIME,
+                ou (None, None) se o usuário não possui foto.
+        """
+        if self.com_foto:
+            data = b64decode(str(self.foto_base64))
+            mime_type = self.foto_mime
+        else:
+            data = None
+            mime_type = None
+        return data, mime_type
+
+    @property
+    def avatar(self) -> tuple[bytes | None, str | None]:
+        """Retorna o avatar do usuário em bytes e o tipo MIME.
+
+        Returns:
+            tuple[bytes | None, str | None]: Tupla contendo os bytes do avatar e o tipo MIME,
+                ou (None, None) se o usuário não possui foto.
+        """
+        if self.com_foto:
+            data = b64decode(str(self.avatar_base64))
+            mime_type = self.foto_mime
+        else:
+            data = None
+            mime_type = None
+        return data, mime_type
+
+    @foto.setter
+    def foto(self, value):
+        """Setter para a foto/avatar do usuário.
+
+        Atualiza os campos relacionados à foto do usuário. Se o valor for None,
+        remove a foto e limpa os campos associados. Caso contrário, tenta armazenar
+        a foto em base64 e o tipo MIME.
+
+        IMPORTANTE: Este setter NÃO realiza commit. O chamador é responsável por
+        gerenciar a transação (commit/rollback).
+
+        Args:
+            value: Um objeto com métodos `read()` e atributo `mimetype`, ou None.
+
+        Raises:
+            ImageProcessingError: Se houver erro ao processar a imagem.
+            ValueError: Se o valor fornecido for inválido.
+        """
+        if value is None:
+            self.com_foto = False
+            self.foto_base64 = None
+            self.avatar_base64 = None
+            self.foto_mime = None
+        else:
+            resultado = ImageProcessingService.processar_upload_foto(value)
+            self.foto_base64 = resultado.foto_base64
+            self.avatar_base64 = resultado.avatar_base64
+            self.foto_mime = resultado.mime_type
+            self.com_foto = True

@@ -83,6 +83,29 @@ Para utilizar um arquivo de configuração diferente, especifique o nome do arqu
 - **Exemplo**: `90` (90 dias)
 - **Nota**: Este é um aviso de segurança que não bloqueia o login, apenas informa ao usuário
 
+### Upload de Imagens
+
+#### `AVATAR_SIZE` (opcional)
+- **Tipo**: Integer
+- **Padrão**: `64`
+- **Descrição**: Tamanho do avatar em pixels (largura e altura). O avatar é gerado automaticamente a partir da foto do perfil, redimensionado proporcionalmente para caber neste tamanho
+- **Exemplo**: `128`
+
+#### `MAX_IMAGE_SIZE` (opcional)
+- **Tipo**: Integer
+- **Padrão**: `5242880` (5 MB)
+- **Descrição**: Tamanho máximo permitido para upload de imagens, em bytes
+- **Exemplos**:
+  - `1048576` (1 MB)
+  - `10485760` (10 MB)
+  - `5242880` (5 MB - padrão)
+
+#### `MAX_IMAGE_DIMENSIONS` (opcional)
+- **Tipo**: Array com 2 integers [largura, altura]
+- **Padrão**: `[2048, 2048]`
+- **Descrição**: Dimensões máximas permitidas para imagens, em pixels (largura x altura). Imagens maiores serão rejeitadas
+- **Exemplo**: `[4096, 4096]`
+
 ### Banco de Dados
 
 #### `SQLALCHEMY_DATABASE_URI` (obrigatório)
@@ -196,6 +219,9 @@ Para utilizar um arquivo de configuração diferente, especifique o nome do arqu
   "PASSWORD_MINUSCULA": true,
   "PASSWORD_NUMERO": true,
   "PASSWORD_SIMBOLO": false,
+  "AVATAR_SIZE": 64,
+  "MAX_IMAGE_SIZE": 5242880,
+  "MAX_IMAGE_DIMENSIONS": [2048, 2048],
   "EMAIL_SENDER": "dev@localhost",
   "SEND_EMAIL": false
 }
@@ -219,6 +245,9 @@ Para utilizar um arquivo de configuração diferente, especifique o nome do arqu
   "PASSWORD_NUMERO": true,
   "PASSWORD_SIMBOLO": true,
   "PASSWORD_MAX_AGE": 90,
+  "AVATAR_SIZE": 128,
+  "MAX_IMAGE_SIZE": 10485760,
+  "MAX_IMAGE_DIMENSIONS": [4096, 4096],
   "EMAIL_SENDER": "noreply@mymoviedb.com",
   "EMAIL_SENDER_NAME": "MyMovieDB",
   "SEND_EMAIL": true,
@@ -245,6 +274,9 @@ Para utilizar um arquivo de configuração diferente, especifique o nome do arqu
   "PASSWORD_NUMERO": true,
   "PASSWORD_SIMBOLO": true,
   "PASSWORD_MAX_AGE": 90,
+  "AVATAR_SIZE": 128,
+  "MAX_IMAGE_SIZE": 10485760,
+  "MAX_IMAGE_DIMENSIONS": [4096, 4096],
   "EMAIL_SENDER": "noreply@gmail.com",
   "EMAIL_SENDER_NAME": "MyMovieDB",
   "SEND_EMAIL": true,

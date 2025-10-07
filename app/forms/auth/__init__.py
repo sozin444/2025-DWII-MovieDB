@@ -1,8 +1,10 @@
 from flask_login import current_user
 from flask_wtf import FlaskForm
+from flask_wtf.file import FileAllowed, FileField
 from wtforms.fields.simple import BooleanField, HiddenField, PasswordField, StringField, SubmitField
 from wtforms.validators import Email, EqualTo, InputRequired, Length
 
+from app.services.imageprocessing_service import ImageProcessingService
 from ..validators import CampoImutavel, SenhaComplexa, UniqueEmail
 
 
@@ -39,16 +41,16 @@ class LoginForm(FlaskForm):
     Includes optional remember me functionality.
     """
     email = StringField(
-                label="Email",
-                validators=[InputRequired(message="É obrigatório informar um email para login"),
-                            Email(message="Informe um email válido"),
-                            Length(max=180, message="O email pode ter até 180 caracteres")])
+            label="Email",
+            validators=[InputRequired(message="É obrigatório informar um email para login"),
+                        Email(message="Informe um email válido"),
+                        Length(max=180, message="O email pode ter até 180 caracteres")])
     password = PasswordField(
-                label="Senha",
-                validators=[InputRequired(message="É necessário informar a senha")])
+            label="Senha",
+            validators=[InputRequired(message="É necessário informar a senha")])
     remember_me = BooleanField(
-                label="Permanecer conectado?",
-                default=True)
+            label="Permanecer conectado?",
+            default=True)
     submit = SubmitField("Entrar")
 
 
@@ -97,7 +99,8 @@ class ProfileForm(FlaskForm):
         Initialize profile form with reference user.
 
         Args:
-            user: moviedb.models.user.User | None: User object to validate against, defaults to current_user.
+            user: moviedb.models.user.User | None: User object to validate against, defaults to
+            current_user.
             **kwargs: dict: Additional keyword arguments passed to FlaskForm.
         """
         super().__init__(**kwargs)
@@ -115,5 +118,16 @@ class ProfileForm(FlaskForm):
             label="Email",
             validators=[CampoImutavel(field_name='email',
                                       message="Você não pode alterar o email.")])
+
+    foto = FileField(
+            label="Foto de perfil",
+            validators=[FileAllowed(ImageProcessingService.ALLOWED_EXTENSIONS,
+                                    "Apenas imagens "
+                                    f"{" ou ".join([", ".join(list(ImageProcessingService.SUPPORTED_FORMATS)[:-1]), list(ImageProcessingService.SUPPORTED_FORMATS)[-1]])} "
+                                    "são permitidas")])
+
+    remover_foto = BooleanField(
+            label="Remover foto atual",
+            default=False)
 
     submit = SubmitField("Efetuar as mudanças")

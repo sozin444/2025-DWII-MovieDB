@@ -1,7 +1,10 @@
+import io
 from urllib.parse import urlsplit
 
-from flask import Blueprint, current_app, flash, redirect, render_template, request, url_for
+from flask import Blueprint, current_app, flash, redirect, render_template, request, Response, \
+    url_for
 from flask_login import current_user, fresh_login_required, login_required
+from PIL import Image, ImageDraw, ImageFont
 
 from app import anonymous_required
 from app.forms.auth import AskToResetPasswordForm, LoginForm, ProfileForm, RegistrationForm, \
@@ -13,6 +16,58 @@ auth_bp = Blueprint(name='auth',
                     import_name=__name__,
                     url_prefix='/auth',
                     template_folder="templates", )
+
+
+def _gerar_placeholder(largura: int,
+                       altura: int,
+                       texto: str,
+                       tamanho_fonte: int) -> bytes:
+    """Gera uma imagem placeholder com texto centralizado.
+
+    Args:
+        largura (int): Largura da imagem em pixels
+        altura (int): Altura da imagem em pixels
+        texto (str): Texto a ser exibido (pode conter \n)
+        tamanho_fonte (int): Tamanho da fonte
+
+    Returns:
+        bytes: Dados da imagem PNG em bytes
+    """
+    img = Image.new('RGB', (largura, altura), color='#6c757d')
+    draw = ImageDraw.Draw(img)
+
+    try:
+        fonte = ImageFont.truetype("arial.ttf", tamanho_fonte)
+    except:
+        fonte = ImageFont.load_default(size=tamanho_fonte)
+
+    bbox = draw.textbbox((0, 0), texto, font=fonte)
+    text_width = bbox[2] - bbox[0]
+    text_height = bbox[3] - bbox[1]
+    position = ((largura - text_width) // 2, (altura - text_height) // 2)
+    draw.text(position, texto, fill='white', align='center', font=fonte)
+
+    buffer = io.BytesIO()
+    img.save(buffer, format='PNG')
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+def _servir_imagem(imagem_data: bytes,
+                   mime_type: str) -> Response:
+    """Cria uma Response com headers apropriados para servir imagem.
+
+    Args:
+        imagem_data (bytes): Dados da imagem
+        mime_type (str): Tipo MIME da imagem
+
+    Returns:
+        Response: Response Flask com headers de cache
+    """
+    response = Response(imagem_data, mimetype=mime_type)
+    response.headers['Content-Type'] = mime_type
+    response.headers['Cache-Control'] = 'public, max-age=3600'
+    return response
 
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
@@ -220,7 +275,9 @@ def reset_password(token):
             flash("Sua senha foi redefinida com sucesso", category='success')
             return redirect(url_for('auth.login'))
         elif resultado.status == UserOperationStatus.TOKEN_EXPIRED:
-            flash("A operação demorou mais do que o esperado. Solicite uma nova redefinição de senha", category='warning')
+            flash(
+                "A operação demorou mais do que o esperado. Solicite uma nova redefinição de senha",
+                category='warning')
             return redirect(url_for('auth.new_password'))
         elif resultado.status == UserOperationStatus.INVALID_TOKEN:
             flash("Token inválido ou expirado", category='warning')
@@ -233,6 +290,52 @@ def reset_password(token):
                            title="Redefinir senha",
                            title_card="Escolha uma nova senha",
                            form=form)
+
+
+@auth_bp.route('/foto/<uuid:user_id>')
+@login_required
+def foto(user_id):
+    """Serve a foto do usuário.
+
+    Requer autenticação. Apenas usuários logados podem ver fotos.
+
+    Args:
+        user_id (uuid.UUID): ID do usuário.
+
+    Returns:
+        flask.Response: Imagem da foto do usuário ou placeholder.
+    """
+    usuario = User.get_by_id(user_id)
+
+    if usuario and usuario.com_foto:
+        foto_data, mime_type = usuario.foto
+        return _servir_imagem(foto_data, mime_type)
+    else:
+        placeholder_data = _gerar_placeholder(300, 400, "Usuário\nsem foto", 48)
+        return _servir_imagem(placeholder_data, 'image/png')
+
+
+@auth_bp.route('/avatar/<uuid:user_id>')
+@login_required
+def avatar(user_id):
+    """Serve o avatar do usuário.
+
+    Requer autenticação. Apenas usuários logados podem ver avatares.
+
+    Args:
+        user_id (uuid.UUID): ID do usuário.
+
+    Returns:
+        flask.Response: Imagem do avatar do usuário ou placeholder.
+    """
+    usuario = User.get_by_id(user_id)
+
+    if usuario and usuario.com_foto:
+        avatar_data, mime_type = usuario.avatar
+        return _servir_imagem(avatar_data, mime_type)
+    else:
+        placeholder_data = _gerar_placeholder(64, 64, "Sem\nfoto", 14)
+        return _servir_imagem(placeholder_data, 'image/png')
 
 
 @auth_bp.route('/', methods=['GET', 'POST'])
@@ -258,9 +361,14 @@ def profile():
         form.email.data = current_user.email
 
     if form.validate_on_submit():
+        # Processa foto do upload
+        nova_foto = form.foto.data if form.foto.data else None
+
         resultado = UserService.atualizar_perfil(
                 usuario=current_user,
-                novo_nome=form.nome.data
+                novo_nome=form.nome.data,
+                nova_foto=nova_foto,
+                remover_foto=form.remover_foto.data
         )
 
         if resultado.status == UserOperationStatus.SUCCESS:

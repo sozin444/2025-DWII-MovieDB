@@ -400,13 +400,17 @@ class UserService:
     def atualizar_perfil(cls,
                          usuario: User,
                          novo_nome: str,
+                         nova_foto=None,
+                         remover_foto: bool = False,
                          session=None,
                          auto_commit: bool = True) -> UserActivationResult:
-        """Atualiza o perfil do usuário (nome).
+        """Atualiza o perfil do usuário (nome e foto).
 
         Args:
             usuario (User): Instância do usuário
             novo_nome (str): Novo nome do usuário
+            nova_foto: Arquivo de foto (FileStorage) ou None
+            remover_foto (bool): Se True, remove a foto atual
             session: Sessão SQLAlchemy opcional. Se None, usa a sessão padrão da classe.
             auto_commit (bool): Se True, faz commit automaticamente. Se False, apenas
                                atualiza o objeto (útil quando chamado dentro de outra transação).
@@ -427,13 +431,41 @@ class UserService:
 
             # Atualiza o nome
             nome_anterior = usuario.nome
+            nome_mudou = novo_nome.strip() != nome_anterior
             usuario.nome = novo_nome.strip()
+
+            if nome_mudou:
+                current_app.logger.info(
+                        "Nome alterado para usuário %s: '%s' -> '%s'" %
+                        (usuario.email, nome_anterior, usuario.nome))
+
+            # Processa foto
+            if remover_foto:
+                usuario.foto = None
+                current_app.logger.info("Foto removida para usuário %s" % (usuario.email,))
+            elif nova_foto and nova_foto.filename:
+                from app.services.imageprocessing_service import ImageProcessingError
+                try:
+                    usuario.foto = nova_foto
+                    current_app.logger.info("Foto atualizada para usuário %s" % (usuario.email,))
+                except ImageProcessingError as e:
+                    if auto_commit:
+                        session.rollback()
+                    return UserActivationResult(
+                            status=UserOperationStatus.UNKNOWN,
+                            error_message=f"Erro ao processar imagem: {str(e)}"
+                    )
+                except ValueError as e:
+                    if auto_commit:
+                        session.rollback()
+                    return UserActivationResult(
+                            status=UserOperationStatus.UNKNOWN,
+                            error_message=str(e)
+                    )
 
             if auto_commit:
                 session.commit()
-                current_app.logger.info(
-                        "Perfil atualizado para usuário %s: nome alterado de '%s' para '%s'" %
-                        (usuario.email, nome_anterior, usuario.nome))
+                current_app.logger.info("Perfil salvo para usuário %s" % (usuario.email,))
             else:
                 current_app.logger.debug(
                         "Perfil marcado para atualização (sem commit) para usuário %s" %

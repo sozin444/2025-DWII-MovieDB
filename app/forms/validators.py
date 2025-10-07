@@ -17,7 +17,7 @@ class UniqueEmail(object):
         message (Optional[str]): Mensagem de erro personalizada.
     """
 
-    def __init__(self, message=None):
+    def __init__(self, message: Optional[str] = None):
         if not message:
             message = "Já existe um usuário com este email"
         self.message = message
