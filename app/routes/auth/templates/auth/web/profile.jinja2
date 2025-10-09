@@ -20,22 +20,29 @@
                         </div>
                         <div class="card-body px-5 py-4">
                             <div class="row">
-                                {% if current_user.com_foto %}
-                                {# Coluna da foto - só aparece se usuário tem foto #}
+                                {# Coluna da foto - sempre aparece #}
                                 <div class="col-md-4 text-center mb-3">
-                                    <img src="{{ url_for('auth.foto', user_id=current_user.id, _external=False) }}?v={{ current_user.updated_at.timestamp() if current_user.updated_at else '' }}"
-                                         class="img-fluid rounded mb-3"
-                                         alt="Foto de perfil"
-                                         style="max-width: 100%;">
-                                    <div class="form-check">
-                                        {{ form.remover_foto(class="form-check-input") }}
-                                        {{ form.remover_foto.label(class="form-check-label") }}
-                                    </div>
+                                    {% if current_user.com_foto %}
+                                        <img src="{{ url_for('auth.foto', user_id=current_user.id, _external=False) }}?v={{ current_user.updated_at.timestamp() if current_user.updated_at else '' }}"
+                                             class="img-fluid rounded mb-3"
+                                             alt="Foto de perfil"
+                                             style="max-width: 100%;">
+                                        <div class="form-check">
+                                            {{ form.remover_foto(class="form-check-input") }}
+                                            {{ form.remover_foto.label(class="form-check-label") }}
+                                        </div>
+                                    {% else %}
+                                        {% set identicon_base64, identicon_mime = current_user.generate_identicon_base64(grid_size=9, image_size=128) %}
+                                        <img src="data:{{ identicon_mime }};base64,{{ identicon_base64 }}"
+                                             class="img-fluid rounded mb-3"
+                                             alt="Identicon"
+                                             style="max-width: 100%;">
+                                        <p class="text-muted"><small>Foto de perfil gerada automaticamente</small></p>
+                                    {% endif %}
                                 </div>
-                                {% endif %}
 
                                 {# Coluna dos dados #}
-                                <div class="col-md-{{ '8' if current_user.com_foto else '12' }}">
+                                <div class="col-md-8">
                                     <div class="mb-3">
                                         {{ render_field(form.nome) }}
                                     </div>
@@ -53,9 +60,6 @@
 
                                     <div class="mb-3">
                                         {{ render_field(form.foto) }}
-{#                                        <small class="form-text text-muted">#}
-{#                                            Formatos aceitos: PNG, JPG, JPEG, WEBP. Tamanho máximo: 5MB.#}
-{#                                        </small>#}
                                     </div>
                                 </div>
                             </div>

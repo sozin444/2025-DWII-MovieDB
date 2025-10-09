@@ -21,3 +21,6 @@ flask-login==0.6.3
 # Necessário para o processamento de imagens
 # https://pillow.readthedocs.io/en/stable/
 Pillow==11.3.0
+# Para gerar avatares
+# https://pydenticon.readthedocs.io/en/latest/
+pydenticon==0.3.1

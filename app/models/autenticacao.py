@@ -197,3 +197,18 @@ class User(db.Model, BasicRepositoryMixin, AuditMixin, UserMixin):
             self.avatar_base64 = resultado.avatar_base64
             self.foto_mime = resultado.mime_type
             self.com_foto = True
+
+    def generate_identicon_base64(self, grid_size: int = 9, image_size: int = 128) -> tuple[str, str]:
+        """Gera um identicon baseado no email do usuário e retorna em base64.
+
+        Args:
+            grid_size (int): Tamanho da grade do identicon (padrão: 16).
+            image_size (int): Tamanho do identicon em pixels (padrão: 128).
+
+        Returns:
+            str: String base64 do identicon gerado.
+            str: Tipo MIME da imagem gerada (geralmente 'image/png').
+        """
+        return ImageProcessingService.generate_identicon_base64(self.email,
+                                                                grid_size=grid_size,
+                                                                image_size=image_size)

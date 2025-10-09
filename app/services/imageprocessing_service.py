@@ -1,3 +1,4 @@
+import hashlib
 import io
 import re
 from base64 import b64encode, b64decode
@@ -260,3 +261,59 @@ class ImageProcessingService:
         buffer_avatar = io.BytesIO()
         imagem_avatar.save(buffer_avatar, format=formato_original, optimize=True)
         return buffer_avatar.getvalue(), imagem_avatar.size
+
+    @staticmethod
+    def generate_identicon_base64(data: str,
+                                  grid_size: int = 8,
+                                  image_size: int = 120,
+                                  foreground: Optional[list] = None,
+                                  background: Optional[str] = None) -> tuple[str, str]:
+        """Gera um identicon em PNG com fundo transparente, codificado em base64, a partir de uma string.
+
+        Args:
+            data (str): String usada para gerar o identicon (ex: e-mail ou nome de usuário).
+            grid_size (int, opcional): Número de blocos na grade (ex: 8 para 8x8). Padrão: 8. Máximo: 15.
+            image_size (int, opcional): Tamanho da imagem em pixels (ex: 240 para 240x240). Padrão: 120. Máximo: 256.
+            foreground (list, opcional): Lista de cores hexadecimais para o identicon. Padrão: uma paleta de cores.
+            background (str, opcional): Cor de fundo em hexadecimal. Padrão: None (transparente).
+
+        Returns:
+            str: String base64 contendo o PNG do identicon.
+            str: Tipo MIME da imagem ("image/png").
+
+        Raises:
+            ImageProcessingError: Em caso de erro na geração do identicon.
+        """
+        import pydenticon
+        import re
+
+        grid_size = max(1, min(grid_size, 15))
+        image_size = max(16, min(image_size, 256))
+
+        # Valores padrão se não forem fornecidos
+        if foreground is None:
+            foreground = [
+                "#1abc9c", "#16a085", "#2ecc71", "#27ae60", "#3498db",
+                "#2980b9", "#9b59b6", "#8e44ad", "#e67e22", "#d35400",
+                "#e74c3c", "#c0392b", "#f1c40f", "#f39c12", "#34495e"
+            ]
+
+        if background is not None:
+            if not isinstance(background, str) or not re.match(r'^#([A-Fa-f0-9]{6})$', background):
+                background = None  # Reseta para None se inválido
+
+        try:
+            generator = pydenticon.Generator(
+                    grid_size, grid_size,
+                    digest=hashlib.sha512,
+                    foreground=foreground,
+                    background=background
+            )
+            identicon_png = generator.generate(data, image_size, image_size, output_format="png")
+        except ValueError:
+            raise ImageProcessingError("Erro ao gerar identicon com os parâmetros fornecidos.")
+        except Exception as e:
+            raise ImageProcessingError(f"Erro inesperado ao gerar identicon: {str(e)}") from e
+        identicon_base64 = b64encode(identicon_png).decode("utf-8")
+
+        return identicon_base64, "image/png"
