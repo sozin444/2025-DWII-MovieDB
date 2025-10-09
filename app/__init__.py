@@ -95,6 +95,12 @@ def create_app(config_filename: str = 'config.dev.json') -> Flask:
                            "adicione a chave acima ao arquivo de configuração")
         app.config["SECRET_KEY"] = secret_key
 
+    # Configura o tamanho máximo de upload (padrão: 16 MB)
+    if "MAX_CONTENT_LENGTH" not in app.config or app.config.get("MAX_CONTENT_LENGTH") is None:
+        app.config["MAX_CONTENT_LENGTH"] = 16 * 1024 * 1024  # 16 MB
+    max_mb = app.config["MAX_CONTENT_LENGTH"] / (1024 * 1024)
+    app.logger.info(f"MAX_CONTENT_LENGTH configurado para {max_mb:.2f} MB")
+
     app.logger.debug("Registrando blueprints")
     from .routes.root import root_bp
     from .routes.auth import auth_bp
@@ -139,6 +145,42 @@ def create_app(config_filename: str = 'config.dev.json') -> Flask:
     # Configura o serviço de email
     email_service = EmailService.create_from_config(app.config)
     app.extensions['email_service'] = email_service
+
+    app.logger.debug("Configurando hooks de requisição")
+
+    @app.errorhandler(413)
+    def request_entity_too_large(error):
+        """Trata o erro de arquivo muito grande no upload.
+
+        Args:
+            error: Erro capturado pelo Flask.
+
+        Returns:
+            flask.Response: Redireciona para a página anterior com mensagem de erro.
+        """
+        from flask import flash, redirect, request, url_for
+
+        # Log detalhado para debug
+        max_mb = app.config.get("MAX_CONTENT_LENGTH", 0) / (1024 * 1024)
+        content_length = request.content_length or 0
+        content_mb = content_length / (1024 * 1024)
+
+        app.logger.warning(f"Erro 413: Requisição muito grande")
+        app.logger.warning(f"  Tamanho da requisição: {content_mb:.2f} MB ({content_length} bytes)")
+        app.logger.warning(
+            f"  Limite configurado: {max_mb:.2f} MB ("
+            f"{app.config.get('MAX_CONTENT_LENGTH', 0)} bytes)")
+        app.logger.warning(f"  URL: {request.path}")
+        app.logger.warning(f"  Content-Type: {request.content_type}")
+
+        flash(f"O arquivo enviado é muito grande. O tamanho máximo permitido é {max_mb:.0f} MB.",
+              category='danger')
+
+        # Tenta redirecionar para a página de origem ou para o perfil
+        referrer = request.referrer
+        if referrer and referrer.startswith(request.host_url):
+            return redirect(referrer)
+        return redirect(url_for('auth.profile'))
 
     app.logger.info("Aplicação configurada com sucesso")
     return app

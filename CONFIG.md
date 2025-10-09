@@ -106,6 +106,16 @@ Para utilizar um arquivo de configuração diferente, especifique o nome do arqu
 - **Descrição**: Dimensões máximas permitidas para imagens, em pixels (largura x altura). Imagens maiores serão rejeitadas
 - **Exemplo**: `[4096, 4096]`
 
+#### `MAX_CONTENT_LENGTH` (opcional)
+- **Tipo**: Integer
+- **Padrão**: `16777216` (16 MB)
+- **Descrição**: Tamanho máximo permitido para requisições HTTP, em bytes. Este limite se aplica ao tamanho total da requisição, incluindo todos os campos do formulário e arquivos enviados. É importante que este valor seja maior ou igual a `MAX_IMAGE_SIZE` para permitir uploads de imagens
+- **Exemplos**:
+  - `5242880` (5 MB)
+  - `16777216` (16 MB - padrão)
+  - `52428800` (50 MB)
+- **⚠️ Importante**: Se você estiver tendo erros 413 (Request Entity Too Large), aumente este valor. O limite também é validado pelo Werkzeug internamente, então valores muito baixos podem causar problemas com uploads de imagens
+
 ### Banco de Dados
 
 #### `SQLALCHEMY_DATABASE_URI` (obrigatório)
@@ -222,6 +232,7 @@ Para utilizar um arquivo de configuração diferente, especifique o nome do arqu
   "AVATAR_SIZE": 64,
   "MAX_IMAGE_SIZE": 5242880,
   "MAX_IMAGE_DIMENSIONS": [2048, 2048],
+  "MAX_CONTENT_LENGTH": 5242880,
   "EMAIL_SENDER": "dev@localhost",
   "SEND_EMAIL": false
 }
@@ -248,6 +259,7 @@ Para utilizar um arquivo de configuração diferente, especifique o nome do arqu
   "AVATAR_SIZE": 128,
   "MAX_IMAGE_SIZE": 10485760,
   "MAX_IMAGE_DIMENSIONS": [4096, 4096],
+  "MAX_CONTENT_LENGTH": 16777216,
   "EMAIL_SENDER": "noreply@mymoviedb.com",
   "EMAIL_SENDER_NAME": "MyMovieDB",
   "SEND_EMAIL": true,
@@ -277,6 +289,7 @@ Para utilizar um arquivo de configuração diferente, especifique o nome do arqu
   "AVATAR_SIZE": 128,
   "MAX_IMAGE_SIZE": 10485760,
   "MAX_IMAGE_DIMENSIONS": [4096, 4096],
+  "MAX_CONTENT_LENGTH": 16777216,
   "EMAIL_SENDER": "noreply@gmail.com",
   "EMAIL_SENDER_NAME": "MyMovieDB",
   "SEND_EMAIL": true,

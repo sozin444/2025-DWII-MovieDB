@@ -106,6 +106,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.js"></script>
     <script>
         let cropper = null;
+        let originalFileType = null;  // Armazena o tipo MIME do arquivo original
         const cropModal = new bootstrap.Modal(document.getElementById('cropModal'));
         const fileInput = document.querySelector('input[name="foto"]');
         const cropImage = document.getElementById('cropImage');
@@ -124,6 +125,9 @@
                     fileInput.value = '';
                     return;
                 }
+
+                // Armazena o tipo MIME original
+                originalFileType = file.type;
 
                 // Lê o arquivo e abre o modal
                 const reader = new FileReader();
@@ -160,39 +164,53 @@
             }
 
             // Obtém a imagem cropada como canvas
+            // Resolução reduzida para evitar erro 413 (Request Entity Too Large)
             const canvas = cropper.getCroppedCanvas({
-                maxWidth: 2048,
-                maxHeight: 3072,
+                maxWidth: 600,
+                maxHeight: 900,
                 imageSmoothingQuality: 'high'
             });
 
-            // Converte para blob e depois para base64
+            // Determina o formato e qualidade baseado no tipo original
+            const mimeType = originalFileType || 'image/jpeg';
+            let quality = undefined;  // PNG não usa qualidade
+
+            // Aplica qualidade apenas para formatos que suportam
+            if (mimeType === 'image/jpeg' || mimeType === 'image/webp') {
+                quality = 0.85;
+            }
+
+            // Converte para blob e cria um arquivo para envio
             canvas.toBlob(function(blob) {
-                const reader = new FileReader();
-                reader.onloadend = function() {
-                    const base64data = reader.result;
+                // Cria um File a partir do Blob (mais eficiente que base64)
+                const extensao = mimeType.split('/')[1]; // 'image/jpeg' -> 'jpeg'
+                const fileName = `foto_cropada.${extensao}`;
+                const file = new File([blob], fileName, { type: mimeType });
 
-                    // Armazena no campo hidden
-                    let hiddenInput = document.querySelector('input[name="foto_cropada"]');
-                    if (!hiddenInput) {
-                        hiddenInput = document.createElement('input');
-                        hiddenInput.type = 'hidden';
-                        hiddenInput.name = 'foto_cropada';
-                        fileInput.form.appendChild(hiddenInput);
-                    }
-                    hiddenInput.value = base64data;
+                // Cria um novo DataTransfer para atribuir ao input file
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
 
-                    // Fecha o modal
-                    cropModal.hide();
+                // Cria ou reutiliza um input file para a foto cropada
+                let fotoCropadaInput = document.querySelector('input[name="foto_cropada"]');
+                if (!fotoCropadaInput) {
+                    fotoCropadaInput = document.createElement('input');
+                    fotoCropadaInput.type = 'file';
+                    fotoCropadaInput.name = 'foto_cropada';
+                    fotoCropadaInput.style.display = 'none';
+                    fileInput.form.appendChild(fotoCropadaInput);
+                }
+                fotoCropadaInput.files = dataTransfer.files;
 
-                    // Destrói o cropper
-                    if (cropper) {
-                        cropper.destroy();
-                        cropper = null;
-                    }
-                };
-                reader.readAsDataURL(blob);
-            }, 'image/jpeg', 0.95);
+                // Fecha o modal
+                cropModal.hide();
+
+                // Destrói o cropper
+                if (cropper) {
+                    cropper.destroy();
+                    cropper = null;
+                }
+            }, mimeType, quality);
         });
 
         // Limpa o cropper quando o modal é fechado sem confirmar
@@ -203,12 +221,12 @@
             }
         });
 
-        // Ao submeter o formulário, limpa o campo de arquivo se houver foto cropada
+        // Ao submeter o formulário, remove o campo de arquivo se houver foto cropada
         fileInput.form.addEventListener('submit', function(e) {
             const fotoCropada = document.querySelector('input[name="foto_cropada"]');
             if (fotoCropada && fotoCropada.value) {
-                // Tem foto cropada, então limpa o campo de arquivo para não enviar duplicado
-                fileInput.value = '';
+                // Tem foto cropada, então remove o campo de arquivo do DOM para não corromper o multipart
+                fileInput.remove();
             }
         });
     </script>

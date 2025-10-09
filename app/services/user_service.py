@@ -407,11 +407,9 @@ class UserService:
             return False
 
     @classmethod
-    def atualizar_perfil(cls,
-                         usuario: User,
+    def atualizar_perfil(cls, usuario: User,
                          novo_nome: str,
                          nova_foto=None,
-                         foto_cropada_base64: str = None,
                          remover_foto: bool = False,
                          session=None,
                          auto_commit: bool = True) -> UserActivationResult:
@@ -421,7 +419,6 @@ class UserService:
             usuario (User): Instância do usuário
             novo_nome (str): Novo nome do usuário
             nova_foto: Arquivo de foto (FileStorage) ou None
-            foto_cropada_base64 (str): String base64 da imagem cropada (tem prioridade sobre nova_foto)
             remover_foto (bool): Se True, remove a foto atual
             session: Sessão SQLAlchemy opcional. Se None, usa a sessão padrão da classe.
             auto_commit (bool): Se True, faz commit automaticamente. Se False, apenas
@@ -452,37 +449,10 @@ class UserService:
                         (usuario.email, nome_anterior, usuario.nome))
 
             # Processa foto com sistema de priorização:
-            # 1. foto_cropada_base64: Se presente, usa a imagem já processada pelo crop no frontend
-            # 2. remover_foto: Se True, remove a foto atual
-            # 3. nova_foto: Upload de arquivo tradicional sem crop
+            # 1. remover_foto: Se True, remove a foto atual
+            # 2. nova_foto: Upload de arquivo (pode ser cropada ou original)
             # Este sistema evita conflitos quando múltiplas ações são enviadas
-            if foto_cropada_base64:
-                from app.services.imageprocessing_service import ImageProcessingError, ImageProcessingService
-                try:
-                    # Processa a imagem base64 cropada
-                    resultado = ImageProcessingService.processar_base64(foto_cropada_base64)
-
-                    # Atribui diretamente os valores processados
-                    usuario.foto_base64 = resultado.foto_base64
-                    usuario.avatar_base64 = resultado.avatar_base64
-                    usuario.foto_mime = resultado.mime_type
-
-                    current_app.logger.info("Foto cropada atualizada para usuário %s" % (usuario.email,))
-                except ImageProcessingError as e:
-                    if auto_commit:
-                        session.rollback()
-                    return UserActivationResult(
-                            status=UserOperationStatus.UNKNOWN,
-                            error_message=f"Erro ao processar imagem: {str(e)}"
-                    )
-                except ValueError as e:
-                    if auto_commit:
-                        session.rollback()
-                    return UserActivationResult(
-                            status=UserOperationStatus.UNKNOWN,
-                            error_message=str(e)
-                    )
-            elif remover_foto:
+            if remover_foto:
                 usuario.foto = None
                 current_app.logger.info("Foto removida para usuário %s" % (usuario.email,))
             elif nova_foto and nova_foto.filename:

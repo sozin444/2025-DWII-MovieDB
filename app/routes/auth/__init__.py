@@ -361,17 +361,20 @@ def profile():
         form.email.data = current_user.email
 
     if form.validate_on_submit():
-        # Processa foto do upload
-        nova_foto = form.foto.data if form.foto.data else None
-
-        # Captura a foto cropada do campo hidden (se presente)
-        foto_cropada = request.form.get('foto_cropada', None)
+        # Verifica se há foto cropada
+        foto_cropada_file = request.files.get('foto_cropada', None)
+        if foto_cropada_file and foto_cropada_file.filename:
+            nova_foto = foto_cropada_file
+        else:
+            # Processa foto do upload original (ignora se o arquivo estiver vazio ou sem nome)
+            nova_foto = None
+            if form.foto.data and hasattr(form.foto.data, 'filename') and form.foto.data.filename:
+                nova_foto = form.foto.data
 
         resultado = UserService.atualizar_perfil(
                 usuario=current_user,
                 novo_nome=form.nome.data,
                 nova_foto=nova_foto,
-                foto_cropada_base64=foto_cropada,
                 remover_foto=form.remover_foto.data
         )
 

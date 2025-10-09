@@ -7,6 +7,7 @@
   "TIMEZONE": "America/Sao_Paulo",
   "SQLALCHEMY_DATABASE_URI": "sqlite:///mymovie.db",
   "SECRET_KEY": "your_secret_key_here",
+  "MAX_CONTENT_LENGTH": 16777216,
   "SEND_MAIL": true,
   "EMAIL_PROVIDER": "postmark",
   "POSTMARK_SERVER_TOKEN": "ColoqueOTokenAqui",
