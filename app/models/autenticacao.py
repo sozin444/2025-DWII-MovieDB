@@ -12,8 +12,8 @@ from datetime import datetime
 from typing import Optional
 
 from flask_login import UserMixin
-from sqlalchemy import DateTime, select, String, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import DateTime, ForeignKey, select, String, Text, Uuid
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app import db
 from app.services.email_service import EmailValidationService
@@ -42,6 +42,14 @@ class User(db.Model, BasicRepositoryMixin, AuditMixin, UserMixin):
     foto_base64: Mapped[Optional[str]] = mapped_column(Text, default=None)
     avatar_base64: Mapped[Optional[str]] = mapped_column(Text, default=None)
     foto_mime: Mapped[Optional[str]] = mapped_column(String(32), default=None)
+
+    # Relação ORM para acessar os códigos de backup 2FA associados a este usuário.
+    codigos_otp: Mapped[list['Backup2FA']] = relationship(
+            'Backup2FA',
+            foreign_keys='Backup2FA.usuario_id',
+            back_populates='usuario',
+            lazy='dynamic'  # Permite usar como query, não carrega tudo de uma vez
+    )
 
     @property
     def email(self):
@@ -212,3 +220,22 @@ class User(db.Model, BasicRepositoryMixin, AuditMixin, UserMixin):
         return ImageProcessingService.generate_identicon_base64(self.email,
                                                                 grid_size=grid_size,
                                                                 image_size=image_size)
+
+
+class Backup2FA(db.Model, BasicRepositoryMixin, AuditMixin):
+    __tablename__ = 'backup2fa'
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    hash_codigo: Mapped[str] = mapped_column(String(256))
+    usuario_id: Mapped[uuid.UUID] = mapped_column(
+            Uuid(as_uuid=True),
+            ForeignKey('usuarios.id', ondelete='CASCADE'),  # Explicit CASCADE
+            index=True
+    )
+    utilizado: Mapped[bool] = mapped_column(default=False, server_default='false')
+    dta_uso: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    dta_para_remocao: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True),
+                                                                 nullable=True)
+
+    # Relação ORM para acessar o usuário associado a este código de backup 2FA.
+    usuario: Mapped['User'] = relationship('User', back_populates='codigos_otp')

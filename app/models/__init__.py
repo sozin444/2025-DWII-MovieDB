@@ -1,1 +1,1 @@
-from app.models.autenticacao import User
+from app.models.autenticacao import User, Backup2FA
