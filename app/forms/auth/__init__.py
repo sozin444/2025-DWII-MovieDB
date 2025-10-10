@@ -119,6 +119,9 @@ class ProfileForm(FlaskForm):
             validators=[CampoImutavel(field_name='email',
                                       message="Você não pode alterar o email.")])
 
+    usa_2fa = BooleanField(
+            label="Ativar o segundo fator de autenticação")
+
     foto = FileField(
             label="Foto de perfil",
             validators=[FileAllowed(ImageProcessingService.ALLOWED_EXTENSIONS,
@@ -131,3 +134,22 @@ class ProfileForm(FlaskForm):
             default=False)
 
     submit = SubmitField("Efetuar as mudanças")
+
+
+class Read2FACodeForm(FlaskForm):
+    """
+    Form for reading and validating 2FA codes.
+
+    Accepts either 6-character TOTP codes or 8-character backup codes.
+    """
+    codigo = StringField(
+            label="Código",
+            validators=[
+                InputRequired(
+                        message="Informe o código fornecido pelo aplicativo autenticador ou um código "
+                                "de reserva"),
+                Length(min=6, max=8)],
+            render_kw={'autocomplete': 'one-time-code',
+                       'pattern'     : r'^([A-Za-z0-9]{6}|[A-Za-z0-9]{8})$'})  # 6 ou 8
+    # caracteres alfanuméricos
+    submit = SubmitField("Enviar código")

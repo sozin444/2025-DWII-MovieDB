@@ -19,24 +19,19 @@
                             <h2 class="fw-bold mb-4 card-title">{{ title_card }}</h2>
                         </div>
                         <div class="card-body px-5 py-4">
-                            <div class="row">
+                            <div class="row align-items-center">
                                 {# Coluna da foto - sempre aparece #}
                                 <div class="col-md-4 text-center mb-3">
+                                    <img src="{{ url_for('auth.foto', user_id=current_user.id, _external=False) }}?v={{ current_user.updated_at.timestamp() if current_user.updated_at else '' }}"
+                                         class="img-fluid rounded mb-3"
+                                         alt="Foto de perfil"
+                                         style="max-width: 100%;">
                                     {% if current_user.com_foto %}
-                                        <img src="{{ url_for('auth.foto', user_id=current_user.id, _external=False) }}?v={{ current_user.updated_at.timestamp() if current_user.updated_at else '' }}"
-                                             class="img-fluid rounded mb-3"
-                                             alt="Foto de perfil"
-                                             style="max-width: 100%;">
                                         <div class="form-check">
                                             {{ form.remover_foto(class="form-check-input") }}
                                             {{ form.remover_foto.label(class="form-check-label") }}
                                         </div>
                                     {% else %}
-                                        {% set identicon_base64, identicon_mime = current_user.generate_identicon_base64(grid_size=9, image_size=128) %}
-                                        <img src="data:{{ identicon_mime }};base64,{{ identicon_base64 }}"
-                                             class="img-fluid rounded mb-3"
-                                             alt="Identicon"
-                                             style="max-width: 100%;">
                                         <p class="text-muted"><small>Foto de perfil gerada automaticamente</small></p>
                                     {% endif %}
                                 </div>
@@ -59,6 +54,13 @@
                                     </div>
 
                                     <div class="mb-3">
+                                        <div class="form-check form-switch">
+                                            {{ form.usa_2fa(class="form-check-input") }}
+                                            {{ form.usa_2fa.label(class="form-check-label") }}
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3">
                                         {{ render_field(form.foto) }}
                                     </div>
                                 </div>
@@ -67,6 +69,59 @@
                         <div class="card-footer px-5 py-3 d-flex justify-content-end">
                             {{ render_field(form.submit, button_style='primary', button_size='md') }}
                         </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Confirmação para Desativar 2FA -->
+    <div class="modal fade" id="disable2faModal" tabindex="-1" aria-labelledby="disable2faModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title" id="disable2faModalLabel">{{ render_icon('exclamation-triangle-fill') }} Desativar Autenticação de Dois Fatores</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                </div>
+                <form method="POST" action="{{ url_for('auth.disable_2fa') }}" id="disable2faForm">
+                    {{ form.csrf_token() }}
+                    <div class="modal-body">
+                        <div class="alert alert-warning" role="alert">
+                            <strong>{{ render_icon('shield-exclamation') }} ATENÇÃO:</strong>
+                            Desativar o segundo fator de autenticação reduz significativamente a segurança da sua conta.
+                        </div>
+
+                        <p><strong>Por que você está desativando?</strong></p>
+                        <ul class="small text-muted">
+                            <li>Perdeu o acesso ao aplicativo autenticador?</li>
+                            <li>Trocou de dispositivo?</li>
+                            <li>Acabaram os códigos de backup?</li>
+                        </ul>
+
+                        <hr>
+
+                        <p class="mb-3"><strong>Para confirmar a desativação, digite sua senha:</strong></p>
+                        <div class="mb-3">
+                            <label for="confirm-password" class="form-label">Senha</label>
+                            <input type="password"
+                                   class="form-control"
+                                   id="confirm-password"
+                                   name="password"
+                                   required
+                                   autocomplete="current-password"
+                                   placeholder="Digite sua senha">
+                        </div>
+
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="confirmDisable" required>
+                            <label class="form-check-label" for="confirmDisable">
+                                Entendo que isso reduz a segurança da minha conta
+                            </label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-danger">Confirmar Desativação</button>
                     </div>
                 </form>
             </div>
@@ -233,5 +288,50 @@
                 fileInput.remove();
             }
         });
+
+        // ========== CONTROLE DO MODAL DE DESATIVAÇÃO 2FA ==========
+        const usa2faCheckbox = document.getElementById('{{ form.usa_2fa.id }}');
+        const disable2faModal = new bootstrap.Modal(document.getElementById('disable2faModal'));
+        const profileForm = document.querySelector('form[method="POST"]');
+        const disable2faForm = document.getElementById('disable2faForm');
+        let valorOriginal2FA = {{ 'true' if current_user.usa_2fa else 'false' }};
+
+        // Detecta quando o checkbox de 2FA é modificado
+        if (usa2faCheckbox) {
+            usa2faCheckbox.addEventListener('change', function(e) {
+                const estaMarcado = this.checked;
+
+                // Se está tentando DESMARCAR (desativar 2FA) e estava ativado
+                if (!estaMarcado && valorOriginal2FA) {
+                    // Previne a mudança imediata do checkbox
+                    e.preventDefault();
+                    this.checked = true; // Restaura o estado
+
+                    // Limpa campos do modal (para evitar senhas antigas)
+                    document.getElementById('confirm-password').value = '';
+                    document.getElementById('confirmDisable').checked = false;
+
+                    // Abre o modal para confirmação
+                    disable2faModal.show();
+                }
+                // Se está MARCANDO (ativar 2FA), permite normalmente (será processado no servidor)
+            });
+        }
+
+        // Quando o modal é fechado sem confirmar (clicou em cancelar ou X)
+        document.getElementById('disable2faModal').addEventListener('hidden.bs.modal', function() {
+            // Garante que o checkbox permanece marcado se cancelou
+            if (usa2faCheckbox && valorOriginal2FA) {
+                usa2faCheckbox.checked = true;
+            }
+        });
+
+        // Quando o formulário do modal é submetido (confirmou desativação)
+        if (disable2faForm) {
+            disable2faForm.addEventListener('submit', function(e) {
+                // Permite o envio do formulário normalmente
+                // A rota /disable_2fa vai processar a desativação
+            });
+        }
     </script>
 {% endblock %}

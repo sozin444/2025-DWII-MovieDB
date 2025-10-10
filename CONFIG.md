@@ -83,6 +83,37 @@ Para utilizar um arquivo de configuração diferente, especifique o nome do arqu
 - **Exemplo**: `90` (90 dias)
 - **Nota**: Este é um aviso de segurança que não bloqueia o login, apenas informa ao usuário
 
+#### `2FA_SESSION_TIMEOUT` (opcional)
+- **Tipo**: Integer
+- **Padrão**: `90` (segundos)
+- **Descrição**: Tempo máximo, em segundos, que o usuário tem para inserir o código 2FA após ter digitado a senha correta. Após este tempo, o token de sessão expira e o usuário precisa fazer login novamente
+- **Exemplo**: `120` (2 minutos)
+
+#### `DATABASE_ENCRYPTION_KEY` (obrigatório)
+- **Tipo**: String
+- **Padrão**: N/A
+- **Descrição**: Chave de criptografia utilizada para proteger dados sensíveis no banco de dados, como segredos OTP do 2FA. A chave é derivada usando PBKDF2HMAC com SHA256 e 100.000 iterações
+- **Exemplo**: `"my-super-secret-encryption-key-2024"`
+- **⚠️ Importante**:
+  - Use uma chave forte e única
+  - **NUNCA** altere esta chave após o sistema estar em uso, pois isso tornará impossível descriptografar dados existentes
+  - Armazene esta chave de forma segura (variáveis de ambiente, vault, etc.)
+  - Perder esta chave significa perder permanentemente todos os dados criptografados
+
+#### `DATABASE_ENCRYPTION_SALT` (obrigatório)
+- **Tipo**: String ou Bytes
+- **Padrão**: N/A
+- **Descrição**: Salt utilizado junto com a chave de criptografia para derivar a chave Fernet final. Aceita strings ASCII, hexadecimal, base64 ou bytes
+- **Exemplos**:
+  - String ASCII: `"my-application-salt-2024"`
+  - Hexadecimal: `"a1b2c3d4e5f6"`
+  - Base64: `"SGVsbG8gV29ybGQ="`
+- **⚠️ Importante**:
+  - Use um salt único para sua aplicação
+  - **NUNCA** altere este valor após o sistema estar em uso
+  - O salt não precisa ser secreto, mas deve ser fixo e único
+  - Recomenda-se usar `os.urandom(16).hex()` para gerar um salt seguro
+
 ### Upload de Imagens
 
 #### `AVATAR_SIZE` (opcional)
@@ -256,6 +287,9 @@ Para utilizar um arquivo de configuração diferente, especifique o nome do arqu
   "PASSWORD_NUMERO": true,
   "PASSWORD_SIMBOLO": true,
   "PASSWORD_MAX_AGE": 90,
+  "2FA_SESSION_TIMEOUT": 120,
+  "DATABASE_ENCRYPTION_KEY": "YOUR-SECURE-ENCRYPTION-KEY-HERE",
+  "DATABASE_ENCRYPTION_SALT": "YOUR-SECURE-SALT-HERE",
   "AVATAR_SIZE": 128,
   "MAX_IMAGE_SIZE": 10485760,
   "MAX_IMAGE_DIMENSIONS": [4096, 4096],
@@ -286,6 +320,9 @@ Para utilizar um arquivo de configuração diferente, especifique o nome do arqu
   "PASSWORD_NUMERO": true,
   "PASSWORD_SIMBOLO": true,
   "PASSWORD_MAX_AGE": 90,
+  "2FA_SESSION_TIMEOUT": 120,
+  "DATABASE_ENCRYPTION_KEY": "YOUR-SECURE-ENCRYPTION-KEY-HERE",
+  "DATABASE_ENCRYPTION_SALT": "YOUR-SECURE-SALT-HERE",
   "AVATAR_SIZE": 128,
   "MAX_IMAGE_SIZE": 10485760,
   "MAX_IMAGE_DIMENSIONS": [4096, 4096],

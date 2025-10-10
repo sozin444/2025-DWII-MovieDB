@@ -6,12 +6,13 @@ incluindo registro, autenticação, ativação de conta, reset de senha, e geren
 Classes principais:
     - UserService: Serviço principal com métodos para operações de usuário
     - UserOperationStatus: Enum com status de resultados de operações
-    - UserActivationResult: Dataclass com resultado de operações de usuário
+    - UserServiceResult: Dataclass com resultado de operações de usuário
 """
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from typing import Optional
+from uuid import UUID
 
 from flask import current_app, render_template, url_for
 from flask_login import login_user, logout_user
@@ -39,28 +40,18 @@ class UserOperationStatus(Enum):
 
 
 @dataclass
-class UserRegistrationResult:
-    """Resultado da operação de registro de usuário."""
+class UserServiceResult:
+    """Resultado unificado de operações do serviço de usuários.
+
+    Esta classe é usada como retorno para todas as operações do UserService,
+    incluindo registro, ativação, reset de senha, e atualização de perfil.
+    """
     status: UserOperationStatus  # Status da operação (SUCCESS, DATABASE_ERROR, etc.)
-    user: Optional[User] = None  # Instância do usuário criado (se sucesso)
-    token: Optional[str] = None  # Token JWT para ativação de conta via email
-    email_sent: bool = False  # Indica se o email de ativação foi enviado com sucesso
+    user: Optional[User] = None  # Instância do usuário (se disponível)
     error_message: Optional[str] = None  # Mensagem de erro detalhada (se falha)
-
-
-@dataclass
-class UserActivationResult:
-    """Resultado da operação de ativação de usuário."""
-    status: UserOperationStatus  # Status da operação (SUCCESS, INVALID_TOKEN, USER_NOT_FOUND, etc.)
-    user: Optional[User] = None  # Instância do usuário ativado (se sucesso)
-    error_message: Optional[str] = None  # Mensagem de erro detalhada (se falha)
-
-@dataclass
-class PasswordResetResult:
-    """Resultado da operação de reset de senha."""
-    status: UserOperationStatus = UserOperationStatus.UNKNOWN
-    user: Optional[User] = None
-    error_message: Optional[str] = None
+    token: Optional[str] = None  # Token JWT (usado em registro e reset de senha)
+    email_sent: bool = False  # Indica se email foi enviado com sucesso (usado em registro)
+    extra_data: Optional[dict] = None  # Dados adicionais (se necessário)
 
 
 class UserService:
@@ -88,7 +79,7 @@ class UserService:
                           password: str,
                           email_service,
                           session=None,
-                          auto_commit: bool = True) -> UserRegistrationResult:
+                          auto_commit: bool = True) -> UserServiceResult:
         """Registra um novo usuário no sistema.
 
         Args:
@@ -101,7 +92,7 @@ class UserService:
                                atualiza o objeto (útil quando chamado dentro de outra transação).
 
         Returns:
-            UserRegistrationResult: Resultado da operação com usuário e token
+            UserServiceResult: Resultado da operação com usuário e token
         """
         if session is None:
             session = cls._default_session
@@ -128,7 +119,7 @@ class UserService:
                 current_app.logger.debug(
                         "Usuário marcado para registro (sem commit): %s" % (usuario.email,))
 
-            return UserRegistrationResult(
+            return UserServiceResult(
                     status=UserOperationStatus.SUCCESS,
                     user=usuario,
                     token=token,
@@ -139,7 +130,7 @@ class UserService:
             if auto_commit:
                 session.rollback()
             current_app.logger.error("Erro ao registrar usuário: %s" % (str(e),))
-            return UserRegistrationResult(
+            return UserServiceResult(
                     status=UserOperationStatus.UNKNOWN,
                     error_message=str(e)
             )
@@ -147,10 +138,67 @@ class UserService:
             if auto_commit:
                 session.rollback()
             current_app.logger.error("Erro de banco de dados ao registrar usuário: %s" % (str(e),))
-            return UserRegistrationResult(
+            return UserServiceResult(
                     status=UserOperationStatus.DATABASE_ERROR,
                     error_message=str(e)
             )
+
+    @staticmethod
+    def reativar_usuario(user_id: UUID, email_service) -> UserServiceResult:
+        """Reenvia o email de validação para um usuário inativo.
+
+        Args:
+            user_id (uuid.UUID): UUID do usuário
+            email_service (EmailService): Instância do serviço de email
+
+        Returns:
+            EmailValidationResult: Resultado da operação
+        """
+        try:
+            uuid_obj = UUID(str(user_id))
+        except (ValueError, TypeError):
+            current_app.logger.warning("UUID inválido fornecido: %s" % (user_id,))
+            return UserServiceResult(
+                    status=UserOperationStatus.INVALID_CREDENTIALS,
+                    error_message="ID de usuário inválido"
+            )
+
+        usuario = User.get_by_id(uuid_obj)
+        if usuario is None:
+            current_app.logger.warning(
+                    "Tentativa de reenvio de email para usuário inexistente: %s" % (user_id,))
+            return UserServiceResult(
+                    status=UserOperationStatus.USER_NOT_FOUND,
+                    error_message="Usuário inexistente"
+            )
+
+        if usuario.ativo:
+            current_app.logger.info("Usuário %s já está ativo" % (usuario.email,))
+            return UserServiceResult(
+                    status=UserOperationStatus.USER_ALREADY_ACTIVE,
+                    user=usuario,
+                    error_message="Usuário já está ativo"
+            )
+
+        # Gera token e envia email de confirmação
+        token, email_sent = UserService._enviar_email_ativacao(usuario, email_service)
+
+        if not email_sent:
+            return UserServiceResult(
+                    status=UserOperationStatus.SEND_EMAIL_ERROR,
+                    user=usuario,
+                    token=token,
+                    email_sent=False,
+                    error_message="Erro no envio do email"
+            )
+
+        current_app.logger.info("Email de reativação enviado para %s" % (usuario.email,))
+        return UserServiceResult(
+                status=UserOperationStatus.SUCCESS,
+                user=usuario,
+                token=token,
+                email_sent=True
+        )
 
     @classmethod
     def ativar_conta(cls,
@@ -247,7 +295,7 @@ class UserService:
             raise e
 
     @staticmethod
-    def pode_logar(usuario: User) -> bool:
+    def conta_ativa(usuario: User) -> bool:
         """Verifica se o usuário está ativo e pode efetuar login.
 
         Args:
@@ -279,27 +327,27 @@ class UserService:
         return idade.days
 
     @staticmethod
-    def ativar_usuario_por_token(token: str) -> UserActivationResult:
+    def ativar_usuario_por_token(token: str) -> UserServiceResult:
         """Valida o email de um usuário através de um token JWT.
 
         Args:
             token (str): Token JWT de validação de email
 
         Returns:
-            UserActivationResult: Resultado da validação
+            UserServiceResult: Resultado da validação
         """
         claims = JWTService.verify(token)
 
         if not claims.valid:
             current_app.logger.error("Token inválido: %s" % (claims.reason,))
-            return UserActivationResult(
+            return UserServiceResult(
                     status=UserOperationStatus.INVALID_TOKEN,
                     error_message=f"Token inválido: {claims.reason}"
             )
 
         if claims.action != JWT_action.VALIDAR_EMAIL:
             current_app.logger.error("Ação de token inválida: %s" % (claims.action,))
-            return UserActivationResult(
+            return UserServiceResult(
                     status=UserOperationStatus.INVALID_TOKEN,
                     error_message="Token inválido"
             )
@@ -307,14 +355,14 @@ class UserService:
         usuario = User.get_by_email(claims.sub)
         if usuario is None:
             current_app.logger.warning("Tentativa de validação de email para usuário inexistente")
-            return UserActivationResult(
+            return UserServiceResult(
                     status=UserOperationStatus.USER_NOT_FOUND,
                     error_message="Usuário não encontrado"
             )
 
         if usuario.ativo:
             current_app.logger.info("Usuário %s já estava ativo" % (usuario.email,))
-            return UserActivationResult(
+            return UserServiceResult(
                     status=UserOperationStatus.USER_ALREADY_ACTIVE,
                     user=usuario,
                     error_message="Usuário já está ativo"
@@ -324,10 +372,61 @@ class UserService:
         UserService.ativar_conta(usuario)
         current_app.logger.info("Email validado com sucesso para %s" % (usuario.email,))
 
-        return UserActivationResult(
+        return UserServiceResult(
                 status=UserOperationStatus.SUCCESS,
                 user=usuario
         )
+
+    @staticmethod
+    def set_pending_2fa_token_data(usuario: User, remember_me: bool = False,
+                                   next_page: str = None) -> str:
+        """Cria um token para iniciar o fluxo de autenticação de dois fatores (2FA).
+
+        Args:
+            usuario (User): Instância do usuário
+            remember_me (bool): Se True, mantém o usuário logado por mais tempo. Default: False
+            next_page (str): Página para redirecionamento após 2FA. Default: None
+
+        Returns:
+            str: Token gerado para 2FA
+        """
+        return JWTService.create(action=JWT_action.PENDING_2FA,
+                                 sub=usuario.id,
+                                 expires_in=current_app.config.get('2FA_SESSION_TIMEOUT', 90),
+                                 extra_data={
+                                     'remember_me': remember_me,
+                                     'next'       : next_page
+                                 })
+
+    @staticmethod
+    def get_pending_2fa_token_data(token: str) -> UserServiceResult:
+        """Decodifica o token de ativação do 2FA e retorna os dados contidos nele.
+
+        Args:
+            token (str): Token JWT de 2FA
+
+        Returns:
+            dict: Dados extraídos do token
+        """
+
+        dados_token = JWTService.verify(token)
+        if not dados_token.valid or \
+                dados_token.action != JWT_action.PENDING_2FA or \
+                dados_token.extra_data is None:
+            current_app.logger.error("Token de 2FA inválido: %s" % (dados_token.reason,))
+            return UserServiceResult(status=UserOperationStatus.INVALID_TOKEN,
+                                     error_message=dados_token.reason)
+        if dados_token.sub is None:
+            current_app.logger.error("Token de 2FA sem subject")
+            return UserServiceResult(status=UserOperationStatus.INVALID_CREDENTIALS)
+        usuario = User.get_by_id(dados_token.sub)
+        if usuario is None:
+            current_app.logger.warning("Tentativa de 2FA para usuário inexistente")
+            return UserServiceResult(status=UserOperationStatus.USER_NOT_FOUND)
+
+        return UserServiceResult(status=UserOperationStatus.SUCCESS,
+                                 user=usuario,
+                                 extra_data=dados_token.extra_data)
 
     @classmethod
     def efetuar_login(cls,
@@ -355,7 +454,7 @@ class UserService:
             session = cls._default_session
 
         try:
-            if not UserService.pode_logar(usuario):
+            if not UserService.conta_ativa(usuario):
                 raise ValueError(f"Usuário {usuario.email} não está ativo")
 
             # Efetua login usando Flask-Login
@@ -412,7 +511,7 @@ class UserService:
                          nova_foto=None,
                          remover_foto: bool = False,
                          session=None,
-                         auto_commit: bool = True) -> UserActivationResult:
+                         auto_commit: bool = True) -> UserServiceResult:
         """Atualiza o perfil do usuário (nome e foto).
 
         Args:
@@ -425,7 +524,7 @@ class UserService:
                                atualiza o objeto (útil quando chamado dentro de outra transação).
 
         Returns:
-            UserActivationResult: Resultado da operação
+            UserServiceResult: Resultado da operação
         """
         if session is None:
             session = cls._default_session
@@ -433,7 +532,7 @@ class UserService:
         try:
             # Valida que o nome não está vazio
             if not novo_nome or not novo_nome.strip():
-                return UserActivationResult(
+                return UserServiceResult(
                         status=UserOperationStatus.UNKNOWN,
                         error_message="Nome não pode ser vazio"
                 )
@@ -463,14 +562,14 @@ class UserService:
                 except ImageProcessingError as e:
                     if auto_commit:
                         session.rollback()
-                    return UserActivationResult(
+                    return UserServiceResult(
                             status=UserOperationStatus.UNKNOWN,
                             error_message=f"Erro ao processar imagem: {str(e)}"
                     )
                 except ValueError as e:
                     if auto_commit:
                         session.rollback()
-                    return UserActivationResult(
+                    return UserServiceResult(
                             status=UserOperationStatus.UNKNOWN,
                             error_message=str(e)
                     )
@@ -483,7 +582,7 @@ class UserService:
                         "Perfil marcado para atualização (sem commit) para usuário %s" %
                         (usuario.email,))
 
-            return UserActivationResult(
+            return UserServiceResult(
                     status=UserOperationStatus.SUCCESS,
                     user=usuario
             )
@@ -493,13 +592,13 @@ class UserService:
                 session.rollback()
             current_app.logger.error(
                     "Erro ao atualizar perfil do usuário %s: %s" % (usuario.email, str(e)))
-            return UserActivationResult(
+            return UserServiceResult(
                     status=UserOperationStatus.DATABASE_ERROR,
                     error_message=str(e)
             )
 
     @staticmethod
-    def solicitar_reset_senha(email: str, email_service) -> PasswordResetResult:
+    def solicitar_reset_senha(email: str, email_service) -> UserServiceResult:
         """Envia email com token para alteração de senha.
 
         Args:
@@ -507,21 +606,21 @@ class UserService:
             email_service (EmailService): Instância do serviço de email
 
         Returns:
-            PasswordResetResult: Resultado da operação
+            UserServiceResult: Resultado da operação
         """
         try:
             email_normalizado = EmailValidationService.normalize(email)
         except ValueError:
             current_app.logger.warning("Email inválido fornecido: %s" % (email,))
             # Por segurança, retorna SUCCESS mesmo com email inválido
-            return PasswordResetResult(status=UserOperationStatus.SUCCESS)
+            return UserServiceResult(status=UserOperationStatus.SUCCESS)
 
         usuario = User.get_by_email(email_normalizado)
         if usuario is None:
             current_app.logger.warning(
                     "Pedido de reset de senha para usuário inexistente (%s)" % (email_normalizado,))
             # Por segurança, retorna SUCCESS mesmo se usuário não existir
-            return PasswordResetResult(status=UserOperationStatus.SUCCESS)
+            return UserServiceResult(status=UserOperationStatus.SUCCESS)
 
         # Gera token e envia email
         token = JWTService.create(JWT_action.RESET_PASSWORD, sub=usuario.email)
@@ -534,14 +633,14 @@ class UserService:
 
         if not result.success:
             current_app.logger.error("Erro ao enviar email de reset para %s" % (usuario.email,))
-            return PasswordResetResult(
+            return UserServiceResult(
                     status=UserOperationStatus.SEND_EMAIL_ERROR,
                     user=usuario,
                     error_message="Erro no envio do email"
             )
 
         current_app.logger.info("Email de reset de senha enviado para %s" % (usuario.email,))
-        return PasswordResetResult(
+        return UserServiceResult(
                 status=UserOperationStatus.SUCCESS,
                 user=usuario
         )
@@ -551,7 +650,7 @@ class UserService:
                                    token: str,
                                    nova_senha: str,
                                    session=None,
-                                   auto_commit: bool = True) -> PasswordResetResult:
+                                   auto_commit: bool = True) -> UserServiceResult:
         """Redefine a senha de um usuário através de um token JWT.
 
         Args:
@@ -562,7 +661,7 @@ class UserService:
                                atualiza o objeto (útil quando chamado dentro de outra transação).
 
         Returns:
-            PasswordResetResult: Resultado da redefinição
+            UserServiceResult: Resultado da redefinição
         """
         if session is None:
             session = cls._default_session
@@ -573,25 +672,25 @@ class UserService:
         if not resultado_token.valid:
             current_app.logger.error("Token inválido: %s" % (resultado_token.reason,))
             if resultado_token.reason == "expired":
-                return PasswordResetResult(
+                return UserServiceResult(
                         status=UserOperationStatus.TOKEN_EXPIRED,
                         error_message="Token expirado"
                 )
-            return PasswordResetResult(
+            return UserServiceResult(
                     status=UserOperationStatus.INVALID_TOKEN,
                     error_message=f"Token inválido: {resultado_token.reason}"
             )
 
         if resultado_token.action != JWT_action.RESET_PASSWORD:
             current_app.logger.error("Ação de token inválida: %s" % (resultado_token.action,))
-            return PasswordResetResult(
+            return UserServiceResult(
                     status=UserOperationStatus.INVALID_TOKEN,
                     error_message="Token inválido"
             )
 
         if resultado_token.sub is None:
             current_app.logger.error("Token sem subject")
-            return PasswordResetResult(
+            return UserServiceResult(
                     status=UserOperationStatus.INVALID_TOKEN,
                     error_message="Token inválido"
             )
@@ -600,7 +699,7 @@ class UserService:
         usuario = User.get_by_email(resultado_token.sub)
         if usuario is None:
             current_app.logger.warning("Tentativa de reset de senha para usuário inexistente")
-            return PasswordResetResult(
+            return UserServiceResult(
                     status=UserOperationStatus.USER_NOT_FOUND,
                     error_message="Usuário não encontrado"
             )
@@ -616,7 +715,7 @@ class UserService:
                 current_app.logger.debug(
                         "Senha marcada para redefinição (sem commit): %s" % (usuario.email,))
 
-            return PasswordResetResult(
+            return UserServiceResult(
                     status=UserOperationStatus.SUCCESS,
                     user=usuario
             )
@@ -626,7 +725,7 @@ class UserService:
                 session.rollback()
             current_app.logger.error(
                     "Erro ao redefinir senha do usuário %s: %s" % (usuario.email, str(e)))
-            return PasswordResetResult(
+            return UserServiceResult(
                     status=UserOperationStatus.DATABASE_ERROR,
                     error_message=str(e)
             )

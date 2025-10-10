@@ -67,18 +67,10 @@
                             {% if current_user.is_anonymous %}
                                 <span class="fw-semibold">Acesso ao sistema</span>
                             {% else %}
-                                {% if current_user.com_foto %}
-                                    <img src="{{ url_for('auth.avatar', user_id=current_user.id) }}"
-                                         alt="Avatar"
-                                         class="rounded-circle me-2"
-                                         style="width: 32px; height: 32px; object-fit: cover;">
-                                {% else %}
-                                    {% set identicon_base64, identicon_mime = current_user.generate_identicon_base64() %}
-                                    <img src="data:{{ identicon_mime }};base64,{{ identicon_base64 }}"
-                                         alt="Identicon"
-                                         class="rounded-circle me-2"
-                                         style="width: 32px; height: 32px; object-fit: cover;">
-                                {% endif %}
+                                <img src="{{ url_for('auth.avatar', user_id=current_user.id) }}"
+                                     alt="Avatar"
+                                     class="rounded-circle me-2"
+                                     style="width: 32px; height: 32px; object-fit: cover;">
                             {% endif %}
                         </a>
                         <ul class="dropdown-menu dropdown-menu-lg-end">

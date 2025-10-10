@@ -18,6 +18,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app import db
 from app.services.email_service import EmailValidationService
 from app.services.imageprocessing_service import ImageProcessingService
+from .custom_types import EncryptedType
 from .mixins import AuditMixin, BasicRepositoryMixin
 
 
@@ -42,6 +43,13 @@ class User(db.Model, BasicRepositoryMixin, AuditMixin, UserMixin):
     foto_base64: Mapped[Optional[str]] = mapped_column(Text, default=None)
     avatar_base64: Mapped[Optional[str]] = mapped_column(Text, default=None)
     foto_mime: Mapped[Optional[str]] = mapped_column(String(32), default=None)
+
+    usa_2fa: Mapped[bool] = mapped_column(default=False, server_default='false')
+    _otp_secret: Mapped[Optional[str]] = mapped_column(
+            EncryptedType(length=500,
+                          encryption_key="DATABASE_ENCRYPTION_KEY",
+                          salt_key="DATABASE_ENCRYPTION_SALT"), default=None)
+    ultimo_otp: Mapped[Optional[str]] = mapped_column(String(6), default=None)
 
     # Relação ORM para acessar os códigos de backup 2FA associados a este usuário.
     codigos_otp: Mapped[list['Backup2FA']] = relationship(
@@ -96,6 +104,14 @@ class User(db.Model, BasicRepositoryMixin, AuditMixin, UserMixin):
         self.password_hash = generate_password_hash(value)
         self.dta_ultima_alteracao_senha = datetime.now()
 
+    @property
+    def otp_secret(self):
+        return self._otp_secret
+
+    @otp_secret.setter
+    def otp_secret(self, value: Optional[str] = None):
+        self._otp_secret = value
+
     @classmethod
     def get_by_email(cls, email: str) -> Optional['User']:
         """Retorna o usuário com o e-mail especificado, ou None se não encontrado.
@@ -145,35 +161,41 @@ class User(db.Model, BasicRepositoryMixin, AuditMixin, UserMixin):
         return check_password_hash(str(self.password_hash), password)
 
     @property
-    def foto(self) -> tuple[bytes | None, str | None]:
+    def foto(self) -> tuple[bytes, str]:
         """Retorna a foto original do usuário em bytes e o tipo MIME.
 
+        Se o usuário não possui foto, retorna o identicon gerado.
+
         Returns:
-            tuple[bytes | None, str | None]: Tupla contendo os bytes da foto e o tipo MIME,
-                ou (None, None) se o usuário não possui foto.
+            tuple[bytes, str]: Tupla contendo os bytes da foto e o tipo MIME.
+                Sempre retorna uma imagem (foto do usuário ou identicon).
         """
         if self.com_foto:
             data = b64decode(str(self.foto_base64))
             mime_type = self.foto_mime
         else:
-            data = None
-            mime_type = None
+            # Gera identicon quando não há foto
+            identicon_base64, mime_type = self.generate_identicon_base64()
+            data = b64decode(identicon_base64)
         return data, mime_type
 
     @property
-    def avatar(self) -> tuple[bytes | None, str | None]:
+    def avatar(self) -> tuple[bytes, str]:
         """Retorna o avatar do usuário em bytes e o tipo MIME.
 
+        Se o usuário não possui foto, retorna o identicon gerado.
+
         Returns:
-            tuple[bytes | None, str | None]: Tupla contendo os bytes do avatar e o tipo MIME,
-                ou (None, None) se o usuário não possui foto.
+            tuple[bytes, str]: Tupla contendo os bytes do avatar e o tipo MIME.
+                Sempre retorna uma imagem (avatar do usuário ou identicon).
         """
         if self.com_foto:
             data = b64decode(str(self.avatar_base64))
             mime_type = self.foto_mime
         else:
-            data = None
-            mime_type = None
+            # Gera identicon quando não há foto
+            identicon_base64, mime_type = self.generate_identicon_base64()
+            data = b64decode(identicon_base64)
         return data, mime_type
 
     @foto.setter
