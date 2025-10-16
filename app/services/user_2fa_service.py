@@ -319,8 +319,11 @@ class User2FAService:
                 current_app.logger.debug(
                         "Códigos 2FA reservas disponíveis para %s: %d." % (usuario.email,
                                                                            backup_count))
-                if backup_count <= 2:
-                    warnings.append(f"Poucos códigos de backup restantes: {backup_count}")
+                if backup_count == 0:
+                    warnings.append("CRÍTICO: Nenhum código reserva restante")
+                elif backup_count <= 2:
+                    warnings.append(
+                            f"ATENÇÃO: Apenas {backup_count} código(s) reserva restante(s)")
 
                 return TwoFAValidationResult(
                         success=True,
@@ -341,12 +344,12 @@ class User2FAService:
                 current_app.logger.debug(
                         "Códigos 2FA reservas disponíveis para %s: %d." % (usuario.email,
                                                                            backup_count))
-                warnings.append("Código de backup utilizado")
+                warnings.append("Código reserva utilizado")
                 if backup_count == 0:
-                    warnings.append("CRÍTICO: Nenhum código de backup restante")
+                    warnings.append("CRÍTICO: Nenhum código reserva restante")
                 elif backup_count <= 2:
                     warnings.append(
-                            f"ATENÇÃO: Apenas {backup_count} código(s) de backup restante(s)")
+                            f"ATENÇÃO: Apenas {backup_count} código(s) reserva restante(s)")
 
                 return TwoFAValidationResult(
                         success=True,

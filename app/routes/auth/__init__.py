@@ -154,6 +154,10 @@ def login():
 
         usuario = User.get_by_email(email_normalizado)
 
+        next_page = request.args.get('next')
+        if not next_page or urlsplit(next_page).netloc != '':
+            next_page = url_for('root.index')
+
         if usuario is None or not usuario.check_password(form.password.data):
             flash("Email ou senha incorretos", category='warning')
         elif not UserService.conta_ativa(usuario):
@@ -165,9 +169,9 @@ def login():
             # CRITICO: Token indicando que a verificação da senha está feita, mas o 2FA
             #  ainda não. Necessário para proteger a rota /get2fa.
             session['pending_2fa_token'] = UserService. \
-                set_pending_2fa_token_data(usuario,
-                                           bool(form.remember_me.data),
-                                           request.args.get('next'))
+                set_pending_2fa_token_data(usuario=usuario,
+                                           remember_me=bool(form.remember_me.data),
+                                           next_page=next_page)
             current_app.logger.debug("pending_2fa_token: %s" % (session['pending_2fa_token'],))
             flash("Conclua o login digitando o código do segundo fator de autenticação",
                   category='info')
@@ -184,10 +188,6 @@ def login():
                     flash(f"Sua senha tem {idade_senha} dias. Por motivos de segurança, "
                           f"recomendamos que você altere sua senha.",
                           category='warning')
-
-            next_page = request.args.get('next')
-            if not next_page or urlsplit(next_page).netloc != '':
-                next_page = url_for('root.index')
             return redirect(next_page)
 
     return render_template('auth/web/login.jinja2',
@@ -231,7 +231,7 @@ def get2fa():
 
     usuario = dados_token.user
     remember_me = dados_token.extra_data.get('remember_me', False)
-    next_page = dados_token.extra_data.get('next', None)
+    next_page = dados_token.extra_data.get('next')
 
     form = Read2FACodeForm()
     if form.validate_on_submit():
@@ -245,14 +245,20 @@ def get2fa():
         if resultado_validacao.success:
             session.pop('pending_2fa_token', None)
             UserService.efetuar_login(usuario, remember_me=remember_me)
-
-            if not next_page or urlsplit(next_page).netloc != '':
-                next_page = url_for('root.index')
-
             flash(f"Usuario {usuario.email} logado", category='success')
+
             if len(resultado_validacao.security_warnings) > 0:
                 for warning in resultado_validacao.security_warnings:
                     flash(Markup(warning), category='warning')
+
+            # Verifica a idade da senha
+            max_age = current_app.config.get('PASSWORD_MAX_AGE', 0)
+            if max_age > 0:
+                idade_senha = UserService.verificar_idade_senha(usuario)
+                if idade_senha is not None and idade_senha > max_age:
+                    flash(f"Sua senha tem {idade_senha} dias. Por motivos de segurança, "
+                          f"recomendamos que você altere sua senha.",
+                          category='warning')
             return redirect(next_page)
 
         if resultado_validacao.method_used == Autenticacao2FA.NOT_ENABLED:
