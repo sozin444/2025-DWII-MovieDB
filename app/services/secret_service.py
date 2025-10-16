@@ -580,12 +580,13 @@ class SecretsManager:
 
 def consolidate_and_remove_keys(app: Flask) -> dict:
     """
-    Consolida chaves de criptografia, salts e hashes de salt da configuração do Flask,
-    removendo as chaves originais para aumentar a segurança.
+    Consolida chaves de criptografia, salts e hashes de salt da configuração do Flask
+    e variáveis de ambiente, removendo as chaves originais para aumentar a segurança.
 
-    Esta função itera pela configuração da aplicação Flask para coletar chaves de
-    criptografia, salts e seus hashes baseados em prefixos específicos. Também normaliza
-    a versão ativa de criptografia para lowercase e remove aspas.
+    Esta função itera pela configuração da aplicação Flask e variáveis de ambiente
+    para coletar chaves de criptografia, salts e seus hashes baseados em prefixos
+    específicos. Também normaliza a versão ativa de criptografia para lowercase e
+    remove aspas.
 
     As chaves individuais (ENCRYPTION_KEYS__vX, ENCRYPTION_SALT__vX, etc.) são removidas
     após consolidação no dicionário ENCRYPTION_KEYS, garantindo uma única fonte de verdade
@@ -604,9 +605,9 @@ def consolidate_and_remove_keys(app: Flask) -> dict:
     """
     encryption_keys: Dict[str, Dict[str, str]] = {}
     keys_to_remove: List[str] = []
+    env_keys_to_remove: List[str] = []
 
-    # Usar list(app.config.items()) para criar cópia temporária e permitir iteração segura
-    # enquanto modificamos o dicionário posteriormente
+    # 1. Processar chaves do app.config primeiro
     for key, value in list(app.config.items()):
         key_upper = key.upper()
 
@@ -616,22 +617,59 @@ def consolidate_and_remove_keys(app: Flask) -> dict:
             version = key.split('__', 1)[1].lower()
             encryption_keys.setdefault(version, {})['salt_hash'] = value
             keys_to_remove.append(key)
-            app.logger.debug("Hash de salt consolidado para versão '%s'" % (version,))
+            app.logger.debug("Hash de salt consolidado para versão '%s' (app.config)" % (version,))
 
         elif key_upper.startswith('ENCRYPTION_SALT__'):
             version = key.split('__', 1)[1].lower()
             encryption_keys.setdefault(version, {})['salt'] = value
             keys_to_remove.append(key)
-            app.logger.debug("Salt consolidado para versão '%s'" % (version,))
+            app.logger.debug("Salt consolidado para versão '%s' (app.config)" % (version,))
 
         elif key_upper.startswith('ENCRYPTION_KEYS__'):
             version = key.split('__', 1)[1].lower()
             encryption_keys.setdefault(version, {})['key'] = value
             keys_to_remove.append(key)
-            app.logger.debug("Chave consolidada para versão '%s'" % (version,))
+            app.logger.debug("Chave consolidada para versão '%s' (app.config)" % (version,))
 
-    # Normalizar ACTIVE_ENCRYPTION_VERSION
+    # 2. Processar variáveis de ambiente (fallback e fonte principal)
+    for env_key, env_value in list(os.environ.items()):
+        env_key_upper = env_key.upper()
+
+        # Verificar o prefixo mais específico primeiro
+        if env_key_upper.startswith('ENCRYPTION_SALT_HASH__'):
+            version = env_key.split('__', 1)[1].lower()
+            # Só adicionar se não foi encontrado no app.config
+            if version not in encryption_keys or 'salt_hash' not in encryption_keys[version]:
+                encryption_keys.setdefault(version, {})['salt_hash'] = env_value
+                env_keys_to_remove.append(env_key)
+                app.logger.debug("Hash de salt consolidado para versão '%s' (environ)" % (version,))
+
+        elif env_key_upper.startswith('ENCRYPTION_SALT__'):
+            version = env_key.split('__', 1)[1].lower()
+            # Só adicionar se não foi encontrado no app.config
+            if version not in encryption_keys or 'salt' not in encryption_keys[version]:
+                encryption_keys.setdefault(version, {})['salt'] = env_value
+                env_keys_to_remove.append(env_key)
+                app.logger.debug("Salt consolidado para versão '%s' (environ)" % (version,))
+
+        elif env_key_upper.startswith('ENCRYPTION_KEYS__'):
+            version = env_key.split('__', 1)[1].lower()
+            # Só adicionar se não foi encontrado no app.config
+            if version not in encryption_keys or 'key' not in encryption_keys[version]:
+                encryption_keys.setdefault(version, {})['key'] = env_value
+                env_keys_to_remove.append(env_key)
+                app.logger.debug("Chave consolidada para versão '%s' (environ)" % (version,))
+
+    # 3. Normalizar ACTIVE_ENCRYPTION_VERSION (verificar app.config primeiro, depois environ)
     active_version = app.config.get('ACTIVE_ENCRYPTION_VERSION')
+    if not active_version:
+        active_version = os.environ.get('ACTIVE_ENCRYPTION_VERSION')
+        if active_version:
+            # Copiar para app.config para centralizar
+            app.config['ACTIVE_ENCRYPTION_VERSION'] = active_version
+            env_keys_to_remove.append('ACTIVE_ENCRYPTION_VERSION')
+            app.logger.debug("ACTIVE_ENCRYPTION_VERSION copiado do environ para app.config")
+
     if active_version:
         if not isinstance(active_version, str):
             app.logger.warning("ACTIVE_ENCRYPTION_VERSION tem tipo inesperado: %s. "
@@ -643,7 +681,7 @@ def consolidate_and_remove_keys(app: Flask) -> dict:
         app.config['ACTIVE_ENCRYPTION_VERSION'] = normalized_version
         app.logger.debug("Versão ativa normalizada: %s" % (normalized_version,))
 
-    # Validar integridade: todas as versões devem ter 'key' e 'salt'
+    # 4. Validar integridade: todas as versões devem ter 'key' e 'salt'
     incomplete_versions = []
     for version, config in encryption_keys.items():
         if 'key' not in config or 'salt' not in config:
@@ -658,15 +696,22 @@ def consolidate_and_remove_keys(app: Flask) -> dict:
                          " Cada versão deve ter 'key' e 'salt'." %
                          (incomplete_versions,))
 
-    # Remover com segurança as chaves consolidadas da configuração original
+    # 5. Remover com segurança as chaves consolidadas da configuração original
     for key in keys_to_remove:
         del app.config[key]
-        app.logger.debug("Chave individual removida: %s" % (key,))
+        app.logger.debug("Chave individual removida do app.config: %s" % (key,))
+
+    # 6. Remover variáveis de ambiente consolidadas (para segurança)
+    for env_key in env_keys_to_remove:
+        if env_key in os.environ:
+            del os.environ[env_key]
+            app.logger.debug("Chave individual removida do environ: %s" % (env_key,))
 
     # Log resumido da operação
-    app.logger.info("[OK] Consolidação concluída: %d verões encontradas, "
-                    "%d chaves individuais removidas" %
-                    (len(encryption_keys), len(keys_to_remove), )
+    total_removed = len(keys_to_remove) + len(env_keys_to_remove)
+    app.logger.info("[OK] Consolidação concluída: %d versões encontradas, "
+                    "%d chaves individuais removidas (%d do app.config, %d do environ)" %
+                    (len(encryption_keys), total_removed, len(keys_to_remove), len(env_keys_to_remove))
     )
 
     return encryption_keys
