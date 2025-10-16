@@ -6,9 +6,10 @@ from functools import wraps
 
 from flask import Flask
 
-from .infra import app_logging
-from .infra.modulos import bootstrap, db, login_manager, migrate
-from .services.email_service import EmailService
+from app.infra import app_logging
+from app.infra.modulos import bootstrap, db, login_manager, migrate, secrets_manager
+from app.services.email_service import EmailService
+from app.services.secret_service import consolidate_and_remove_keys, SecretsManagerError
 
 
 def anonymous_required(f):
@@ -37,6 +38,7 @@ def anonymous_required(f):
 
 
 def create_app(config_filename: str = 'config.dev.json') -> Flask:
+    from dotenv import load_dotenv
     app = Flask(__name__,
                 instance_relative_config=True,
                 static_folder='static',
@@ -50,8 +52,10 @@ def create_app(config_filename: str = 'config.dev.json') -> Flask:
 
     app_logging.configure_logging(logging.DEBUG)
 
-    app.logger.debug(
+    app.logger.info(
             "Lendo a configuração da aplicação a partir do arquivo '%s'" % (config_filename,))
+
+    # 1. Carregar JSON base
     try:
         app.config.from_file(config_filename, load=json.load)
     except FileNotFoundError:
@@ -66,6 +70,28 @@ def create_app(config_filename: str = 'config.dev.json') -> Flask:
         app.logger.fatal(
                 "Erro ao carregar o arquivo de configuração '%s': %s" % (config_filename, str(e),))
         sys.exit(1)
+
+    # 2. Carregar .env.crypto se existir (procura em instance/)
+    crypto_file = os.path.join(app.instance_path, '.env.crypto')
+    if os.path.exists(crypto_file):
+        load_dotenv(crypto_file, override=True)
+        app.logger.info("Arquivo '%s' carregado" % (crypto_file, ))
+    else:
+        app.logger.debug("Arquivo '%s' não encontrado" % (crypto_file, ))
+
+    # 3. Sobrescrever com variáveis de ambiente
+    for key in list(app.config.keys()):
+        if key in os.environ:
+            app.config[key] = os.environ[key]
+            app.logger.debug(f"  - Configuração sobrescrita: {key}")
+
+    # 4. Consolidar as chaves em formato de dicionário
+    encryption_keys = consolidate_and_remove_keys(app)
+
+    # Atribuir ao config
+    if encryption_keys:
+        app.config['ENCRYPTION_KEYS'] = encryption_keys
+        app.logger.info(f"Chaves consolidadas: {list(encryption_keys.keys())}")
 
     app.logger.debug("Aplicando configurações")
     if "SQLALCHEMY_DATABASE_URI" not in app.config:
@@ -112,6 +138,12 @@ def create_app(config_filename: str = 'config.dev.json') -> Flask:
     db.init_app(app)
     migrate.init_app(app, db, compare_type=True)
     login_manager.init_app(app)
+    try:
+        secrets_manager.init_app(app)
+    except SecretsManagerError as e:
+        app.logger.fatal("Não foi possível inicializar o gerenciador de segredos")
+        app.logger.fatal(str(e))
+        sys.exit(1)
 
     login_manager.login_view = 'auth.login'
     login_manager.login_message = "É necessário estar logado para acessar esta funcionalidade."
@@ -146,6 +178,10 @@ def create_app(config_filename: str = 'config.dev.json') -> Flask:
     email_service = EmailService.create_from_config(app.config)
     app.extensions['email_service'] = email_service
 
+    app.logger.debug("Registrando comandos CLI")
+    from app.cli.secrets_cli import secrets_cli
+    app.cli.add_command(secrets_cli)
+
     app.logger.debug("Configurando hooks de requisição")
 
     @app.errorhandler(413)
@@ -168,8 +204,8 @@ def create_app(config_filename: str = 'config.dev.json') -> Flask:
         app.logger.warning(f"Erro 413: Requisição muito grande")
         app.logger.warning(f"  Tamanho da requisição: {content_mb:.2f} MB ({content_length} bytes)")
         app.logger.warning(
-            f"  Limite configurado: {max_mb:.2f} MB ("
-            f"{app.config.get('MAX_CONTENT_LENGTH', 0)} bytes)")
+                f"  Limite configurado: {max_mb:.2f} MB ("
+                f"{app.config.get('MAX_CONTENT_LENGTH', 0)} bytes)")
         app.logger.warning(f"  URL: {request.path}")
         app.logger.warning(f"  Content-Type: {request.content_type}")
 
@@ -181,6 +217,105 @@ def create_app(config_filename: str = 'config.dev.json') -> Flask:
         if referrer and referrer.startswith(request.host_url):
             return redirect(referrer)
         return redirect(url_for('auth.profile'))
+
+    @app.errorhandler(SecretsManagerError)
+    def handle_secrets_manager_error(error):
+        """Trata erros relacionados ao gerenciamento de chaves de criptografia.
+
+        Args:
+            error: Instância de SecretsManagerError.
+
+        Returns:
+            flask.Response: Renderiza página de erro com instruções.
+        """
+        from datetime import datetime
+        from flask import render_template, request
+
+        app.logger.error(f"Erro no gerenciamento de segredos: {error}")
+        app.logger.error(f"  URL: {request.path}")
+        app.logger.error(f"  Método: {request.method}")
+
+        error_message = (
+            "Erro de configuração: Sistema de criptografia não inicializado corretamente. "
+            "Execute 'flask secrets generate' para criar as chaves de criptografia."
+        )
+
+        return render_template(
+            'error.jinja2',
+            error_code=500,
+            error_title="Erro de Configuração",
+            error_message=error_message,
+            error_details=str(error),
+            show_details=app.debug,
+            timestamp=datetime.now()
+        ), 500
+
+    @app.errorhandler(500)
+    def internal_server_error(error):
+        """Trata erros internos do servidor (500).
+
+        Args:
+            error: Erro capturado pelo Flask.
+
+        Returns:
+            flask.Response: Renderiza página de erro genérica.
+        """
+        from datetime import datetime
+        from flask import render_template, request
+
+        app.logger.error(f"Erro interno do servidor: {error}", exc_info=True)
+        app.logger.error(f"  URL: {request.path}")
+        app.logger.error(f"  Método: {request.method}")
+
+        error_message = (
+            "Ocorreu um erro interno no servidor. "
+            "Nossa equipe foi notificada e está trabalhando para resolver o problema."
+        )
+
+        return render_template(
+            'error.jinja2',
+            error_code=500,
+            error_title="Erro Interno do Servidor",
+            error_message=error_message,
+            error_details=str(error) if app.debug else None,
+            show_details=app.debug,
+            timestamp=datetime.now()
+        ), 500
+
+    @app.errorhandler(404)
+    def not_found_error(error):
+        """Trata erros de página não encontrada (404).
+
+        Args:
+            error: Erro capturado pelo Flask.
+
+        Returns:
+            flask.Response: Renderiza página de erro 404.
+        """
+        from datetime import datetime
+        from flask import render_template, request
+
+        if request.path in ['/favicon.ico', '/robots.txt']:
+            return '', 204  # No Content para evitar logs desnecessários
+
+        app.logger.warning(f"Página não encontrada: {request.path}")
+        app.logger.warning(f"  Método: {request.method}")
+        app.logger.warning(f"  Referrer: {request.referrer}")
+
+        error_message = (
+            "A página que você está procurando não foi encontrada. "
+            "Ela pode ter sido removida, renomeada ou estar temporariamente indisponível."
+        )
+
+        return render_template(
+            'error.jinja2',
+            error_code=404,
+            error_title="Página Não Encontrada",
+            error_message=error_message,
+            error_details=None,
+            show_details=False,
+            timestamp=datetime.now()
+        ), 404
 
     app.logger.info("Aplicação configurada com sucesso")
     return app

@@ -67,7 +67,7 @@
                             {% if current_user.is_anonymous %}
                                 <span class="fw-semibold">Acesso ao sistema</span>
                             {% else %}
-                                <img src="{{ url_for('auth.avatar', user_id=current_user.id) }}"
+                                <img src="{{ url_for('auth.avatar', user_id=current_user.id, _external=False) }}?v={{ current_user.updated_at.timestamp() if current_user.updated_at else '' }}"
                                      alt="Avatar"
                                      class="rounded-circle me-2"
                                      style="width: 32px; height: 32px; object-fit: cover;">

@@ -1,13 +1,13 @@
 import hashlib
 import io
 import re
-from base64 import b64encode, b64decode
+from base64 import b64decode, b64encode
 from dataclasses import dataclass
 from typing import Optional, Tuple
 
-from flask import current_app
+from flask import current_app, Response
+from PIL import Image, ImageDraw, ImageFont
 
-from PIL import Image
 
 class ImageProcessingError(Exception):
     """Exceção customizada para erros de processamento de imagem.
@@ -152,15 +152,15 @@ class ImageProcessingService:
             # Validação de tamanho
             if len(foto_data) > max_file_size:
                 raise ValueError(
-                    f"Arquivo muito grande. Máximo permitido: "
-                    f"{max_file_size / (1024 * 1024):.1f}MB")
+                        f"Arquivo muito grande. Máximo permitido: "
+                        f"{max_file_size / (1024 * 1024):.1f}MB")
 
             # Processa a imagem
             return ImageProcessingService._processar_imagem_bytes(
-                foto_data,
-                mime_type,
-                avatar_size,
-                max_dimensions
+                    foto_data,
+                    mime_type,
+                    avatar_size,
+                    max_dimensions
             )
 
         except (ValueError, TypeError) as e:
@@ -317,3 +317,65 @@ class ImageProcessingService:
         identicon_base64 = b64encode(identicon_png).decode("utf-8")
 
         return identicon_base64, "image/png"
+
+    @staticmethod
+    def gerar_placeholder(largura: int,
+                          altura: int,
+                          texto: Optional[str],
+                          tamanho_fonte: Optional[int]) -> bytes:
+        """Gera uma imagem placeholder com texto centralizado.
+
+        Args:
+            largura (int): Largura da imagem em pixels
+            altura (int): Altura da imagem em pixels
+            texto (str, opcional): Texto a ser exibido (pode conter \n)
+            tamanho_fonte (int, opcional): Tamanho da fonte
+
+        Returns:
+            bytes: Dados da imagem PNG em bytes
+
+        Raises:
+            ImageProcessingError: Se texto for fornecido mas tamanho_fonte não for.
+        """
+        if texto and not tamanho_fonte:
+            raise ImageProcessingError(
+                "Se texto for fornecido, tamanho_fonte deve ser especificado.")
+
+        img = Image.new('RGB', (largura, altura), color='#6c757d')
+        draw = ImageDraw.Draw(img)
+
+        if texto and tamanho_fonte:
+            try:
+                fonte = ImageFont.truetype("arial.ttf", tamanho_fonte)
+            except (OSError, ValueError):
+                fonte = ImageFont.load_default(size=tamanho_fonte)
+            except Exception as e:
+                raise ImageProcessingError(f"Erro ao carregar fonte: {str(e)}") from e
+
+            bbox = draw.textbbox((0, 0), texto, font=fonte)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+            position = ((largura - text_width) // 2, (altura - text_height) // 2)
+            draw.text(position, texto, fill='white', align='center', font=fonte)
+
+        buffer = io.BytesIO()
+        img.save(buffer, format='PNG')
+        buffer.seek(0)
+        return buffer.getvalue()
+
+    @staticmethod
+    def servir_imagem(imagem_data: bytes,
+                      mime_type: str = 'image/png') -> Response:
+        """Cria uma Response com headers apropriados para servir imagem.
+
+        Args:
+            imagem_data (bytes): Dados da imagem
+            mime_type (str): Tipo MIME da imagem. Default: 'image/png'
+
+        Returns:
+            Response: Response Flask com headers de cache
+        """
+        response = Response(imagem_data, mimetype=mime_type)
+        response.headers['Content-Type'] = mime_type
+        response.headers['Cache-Control'] = 'public, max-age=3600'
+        return response

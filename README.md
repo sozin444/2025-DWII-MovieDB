@@ -110,14 +110,6 @@ Os seguintes parâmetros **DEVEM** ser configurados para o funcionamento correto
     - Exemplo SQLite: `"sqlite:///mymovie.db"`
     - Exemplo PostgreSQL: `"postgresql://user:pass@host/db"`
 
-- **`DATABASE_ENCRYPTION_KEY`**: Chave para criptografia de dados sensíveis (segredos 2FA)
-    - Use uma chave forte e única
-    - ⚠️ **NUNCA** altere após o sistema estar em uso (tornará dados inacessíveis)
-
-- **`DATABASE_ENCRYPTION_SALT`**: Salt para derivação da chave de criptografia
-    - Gere com: `python -c "import os; print(os.urandom(16).hex())"`
-    - ⚠️ **NUNCA** altere após o sistema estar em uso
-
 #### Obrigatórios em Produção
 - **`SECRET_KEY`**: Chave secreta para criptografia de tokens JWT e sessões
   - Gere com: `python -c "import os; print(os.urandom(32).hex())"`
@@ -132,6 +124,13 @@ Os seguintes parâmetros **DEVEM** ser configurados para o funcionamento correto
    ```bash
    pip install -r requirements.txt
    ```
+
+### Geração da chave de criptografia
+
+⚠️ Este passo é obrigatório para o funcionamento da aplicação.
+
+Siga os procedimentos indicados no arquivo SECRETS.md para gerar a chave de criptografia dos dados
+sensíveis (segredos 2FA).
 
 ## Migração do banco de dados
 

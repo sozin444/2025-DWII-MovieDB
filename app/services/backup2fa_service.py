@@ -7,7 +7,7 @@ from sqlalchemy import delete, insert
 from sqlalchemy.exc import SQLAlchemyError
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from app import db
+from app.infra.modulos import db
 from app.models.autenticacao import Backup2FA, User
 
 
@@ -222,10 +222,10 @@ class Backup2FAService:
         try:
             # Remove todos os códigos não utilizados do usuário
             session.execute(
-                delete(Backup2FA).where(
-                    Backup2FA.usuario_id == usuario.id,
-                    Backup2FA.utilizado == False
-                )
+                    delete(Backup2FA).where(
+                            Backup2FA.usuario_id == usuario.id,
+                            Backup2FA.utilizado == False
+                    )
             )
 
             # Gera novos códigos
@@ -239,9 +239,9 @@ class Backup2FAService:
 
                 # Prepara registro para inserção em batch
                 registros_para_inserir.append({
-                    'usuario_id': usuario.id,
+                    'usuario_id' : usuario.id,
                     'hash_codigo': generate_password_hash(codigo_plano),
-                    'utilizado': False
+                    'utilizado'  : False
                 })
 
             # Insere todos os códigos em batch
@@ -280,10 +280,10 @@ class Backup2FAService:
         try:
             # Remove códigos onde a data de remoção já passou
             resultado = session.execute(
-                delete(Backup2FA).where(
-                    Backup2FA.dta_para_remocao.isnot(None),
-                    Backup2FA.dta_para_remocao <= datetime.now()
-                )
+                    delete(Backup2FA).where(
+                            Backup2FA.dta_para_remocao.isnot(None),
+                            Backup2FA.dta_para_remocao <= datetime.now()
+                    )
             )
 
             if auto_commit:

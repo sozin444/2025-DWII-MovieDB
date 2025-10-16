@@ -18,7 +18,7 @@ from flask import current_app, render_template, url_for
 from flask_login import login_user, logout_user
 from sqlalchemy.exc import SQLAlchemyError
 
-from app import db
+from app.infra.modulos import db
 from app.models.autenticacao import User
 from .email_service import EmailValidationService
 from .token_service import JWT_action, JWTService
@@ -467,7 +467,7 @@ class UserService:
             if auto_commit:
                 session.commit()
                 current_app.logger.info(
-                    "Informação sobre último login de %s atualizada" % (usuario.email,))
+                        "Informação sobre último login de %s atualizada" % (usuario.email,))
             else:
                 current_app.logger.info(
                         "Informação sobre último login de %s marcada para atualizar" % (
@@ -647,10 +647,10 @@ class UserService:
 
     @classmethod
     def redefinir_senha_por_token(cls,
-                                   token: str,
-                                   nova_senha: str,
-                                   session=None,
-                                   auto_commit: bool = True) -> UserServiceResult:
+                                  token: str,
+                                  nova_senha: str,
+                                  session=None,
+                                  auto_commit: bool = True) -> UserServiceResult:
         """Redefine a senha de um usuário através de um token JWT.
 
         Args:

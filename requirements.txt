@@ -32,3 +32,4 @@ pyotp==2.9.0
 qrcode==8.2
 # Necessário para a criptografia de colunas no banco de dados
 cryptography==46.0.2
+python-dotenv==1.1.1

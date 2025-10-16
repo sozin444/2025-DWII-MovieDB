@@ -4,12 +4,11 @@ from typing import List, Optional, Union
 
 import pyotp
 from flask import current_app
-from app import db
-from app.models.autenticacao import User
 from sqlalchemy.exc import SQLAlchemyError
 
+from app.infra.modulos import db
+from app.models.autenticacao import User
 from .backup2fa_service import Backup2FAService
-from .qrcode_service import QRCodeConfig, QRCodeService
 from .token_service import JWT_action, JWTService
 
 
@@ -118,8 +117,8 @@ class User2FAService:
                                       expires_in=current_app.config.get('2FA_SESSION_TIMEOUT', 90))
 
             current_app.logger.debug(
-                "Iniciado processo de ativação 2FA para %s (secret salvo no banco, não no token)" % (
-                    usuario.email,))
+                    "Iniciado processo de ativação 2FA para %s (secret salvo no banco, "
+                    "não no token)" % (usuario.email,))
 
             return TwoFASetupResult(
                     status=Autenticacao2FA.ENABLING,
@@ -187,7 +186,8 @@ class User2FAService:
                 current_app.logger.info("Ativado 2FA para usuário %s." % (usuario.email,))
             else:
                 current_app.logger.debug(
-                        "2FA marcado para ativação (sem commit) para usuário %s." % (usuario.email,))
+                        "2FA marcado para ativação (sem commit) para "
+                        "usuário %s." % (usuario.email,))
 
             return TwoFASetupResult(status=Autenticacao2FA.ENABLED,
                                     backup_codes=backup_codes)
@@ -234,10 +234,12 @@ class User2FAService:
             if auto_commit:
                 session.commit()
                 current_app.logger.warning("Desativado 2FA para usuário %s." % (usuario.email,))
-                current_app.logger.warning("Códigos de backup invalidados: %d" % (codigos_invalidados,))
+                current_app.logger.warning(
+                    "Códigos de backup invalidados: %d" % (codigos_invalidados,))
             else:
                 current_app.logger.debug(
-                        "2FA marcado para desativação (sem commit) para usuário %s." % (usuario.email,))
+                        "2FA marcado para desativação (sem commit) "
+                        "para usuário %s." % (usuario.email,))
 
             return TwoFASetupResult(status=Autenticacao2FA.DISABLED)
 
@@ -380,7 +382,6 @@ class User2FAService:
                     remaining_backup_codes=None,
                     security_warnings=warnings)
 
-
     @staticmethod
     def otp_secret_formatted(value: Union[User, str]) -> Optional[str]:
         """Obtém o segredo OTP formatado para exibição.
@@ -404,12 +405,6 @@ class User2FAService:
             return None
         # Formata em grupos de 4 caracteres
         return ' '.join(secret[i:i + 4] for i in range(0, len(secret), 4))
-
-    @staticmethod
-    def validar_tentative_otp_secret(tentative_secret: str,
-                                     codigo: str) -> bool:
-        totp = pyotp.TOTP(tentative_secret)
-        return totp.verify(codigo, valid_window=1)
 
     @staticmethod
     def validar_token_ativacao_2fa(usuario: User,
@@ -473,8 +468,8 @@ class User2FAService:
             return TwoFASetupResult(status=Autenticacao2FA.ALREADY_ENABLED)
 
         current_app.logger.debug(
-                "Token de ativação 2FA validado com sucesso para usuário %s (secret recuperado do banco)" % (
-                    usuario.email,))
+                "Token de ativação 2FA validado com sucesso para usuário %s (secret recuperado do "
+                "banco)" % (usuario.email,))
 
         # Retorna o secret do banco para uso na confirmação
         # O QR code não é retornado aqui pois deve ser regenerado na rota se necessário

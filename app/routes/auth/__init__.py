@@ -1,18 +1,18 @@
-import io
 from datetime import datetime
 from urllib.parse import urlsplit
 
-from flask import Blueprint, current_app, flash, redirect, render_template, request, Response, \
-    session, url_for
+from flask import Blueprint, current_app, flash, redirect, render_template, request, session, \
+    url_for
 from flask_login import current_user, fresh_login_required, login_required
 from markupsafe import Markup
-from PIL import Image, ImageDraw, ImageFont
 
 from app import anonymous_required
 from app.forms.auth import AskToResetPasswordForm, LoginForm, ProfileForm, Read2FACodeForm, \
     RegistrationForm, \
     SetNewPasswordForm
 from app.models import User
+from app.services.backup2fa_service import Backup2FAService
+from app.services.imageprocessing_service import ImageProcessingService
 from app.services.user_2fa_service import Autenticacao2FA, User2FAService
 from app.services.user_service import UserOperationStatus, UserService
 
@@ -20,58 +20,6 @@ auth_bp = Blueprint(name='auth',
                     import_name=__name__,
                     url_prefix='/auth',
                     template_folder="templates", )
-
-
-def _gerar_placeholder(largura: int,
-                       altura: int,
-                       texto: str,
-                       tamanho_fonte: int) -> bytes:
-    """Gera uma imagem placeholder com texto centralizado.
-
-    Args:
-        largura (int): Largura da imagem em pixels
-        altura (int): Altura da imagem em pixels
-        texto (str): Texto a ser exibido (pode conter \n)
-        tamanho_fonte (int): Tamanho da fonte
-
-    Returns:
-        bytes: Dados da imagem PNG em bytes
-    """
-    img = Image.new('RGB', (largura, altura), color='#6c757d')
-    draw = ImageDraw.Draw(img)
-
-    try:
-        fonte = ImageFont.truetype("arial.ttf", tamanho_fonte)
-    except:
-        fonte = ImageFont.load_default(size=tamanho_fonte)
-
-    bbox = draw.textbbox((0, 0), texto, font=fonte)
-    text_width = bbox[2] - bbox[0]
-    text_height = bbox[3] - bbox[1]
-    position = ((largura - text_width) // 2, (altura - text_height) // 2)
-    draw.text(position, texto, fill='white', align='center', font=fonte)
-
-    buffer = io.BytesIO()
-    img.save(buffer, format='PNG')
-    buffer.seek(0)
-    return buffer.getvalue()
-
-
-def _servir_imagem(imagem_data: bytes,
-                   mime_type: str) -> Response:
-    """Cria uma Response com headers apropriados para servir imagem.
-
-    Args:
-        imagem_data (bytes): Dados da imagem
-        mime_type (str): Tipo MIME da imagem
-
-    Returns:
-        Response: Response Flask com headers de cache
-    """
-    response = Response(imagem_data, mimetype=mime_type)
-    response.headers['Content-Type'] = mime_type
-    response.headers['Cache-Control'] = 'public, max-age=3600'
-    return response
 
 
 @auth_bp.route('/register', methods=['GET', 'POST'])
@@ -175,6 +123,7 @@ def reativar_usuario(user_id):
 
     return redirect(url_for('root.index'))
 
+
 @auth_bp.route('/login', methods=['GET', 'POST'])
 @anonymous_required
 def login():
@@ -209,12 +158,13 @@ def login():
             flash("Email ou senha incorretos", category='warning')
         elif not UserService.conta_ativa(usuario):
             flash(Markup("Sua conta ainda não foi ativada. "
-                         f"Precisa de um <a href='{url_for('auth.reativar_usuario', user_id=usuario.id)}'>"
+                         f"Precisa de um <a href='"
+                         f"{url_for('auth.reativar_usuario', user_id=usuario.id)}'>"
                          "novo email de ativação</a>?"), category='warning')
         elif usuario.usa_2fa:
             # CRITICO: Token indicando que a verificação da senha está feita, mas o 2FA
             #  ainda não. Necessário para proteger a rota /get2fa.
-            session['pending_2fa_token'] = UserService.\
+            session['pending_2fa_token'] = UserService. \
                 set_pending_2fa_token_data(usuario,
                                            bool(form.remember_me.data),
                                            request.args.get('next'))
@@ -404,9 +354,8 @@ def reset_password(token):
             flash("Sua senha foi redefinida com sucesso", category='success')
             return redirect(url_for('auth.login'))
         elif resultado.status == UserOperationStatus.TOKEN_EXPIRED:
-            flash(
-                "A operação demorou mais do que o esperado. Solicite uma nova redefinição de senha",
-                category='warning')
+            flash("A operação demorou mais do que o esperado. Solicite uma nova :"
+                  "redefinição de senha", category='warning')
             return redirect(url_for('auth.new_password'))
         elif resultado.status == UserOperationStatus.INVALID_TOKEN:
             flash("Token inválido ou expirado", category='warning')
@@ -439,11 +388,13 @@ def foto(user_id):
 
     if usuario:
         foto_data, mime_type = usuario.foto
-        return _servir_imagem(foto_data, mime_type)
+        return ImageProcessingService.servir_imagem(foto_data, mime_type)
     else:
         # Usuário não encontrado - retorna placeholder
-        placeholder_data = _gerar_placeholder(300, 400, "Usuário\nnão encontrado", 48)
-        return _servir_imagem(placeholder_data, 'image/png')
+        placeholder_data = ImageProcessingService.gerar_placeholder(300, 400,
+                                                                    "Usuário\nnão encontrado",
+                                                                    48)
+        return ImageProcessingService.servir_imagem(placeholder_data, 'image/png')
 
 
 @auth_bp.route('/avatar/<uuid:user_id>')
@@ -464,11 +415,13 @@ def avatar(user_id):
 
     if usuario:
         avatar_data, mime_type = usuario.avatar
-        return _servir_imagem(avatar_data, mime_type)
+        return ImageProcessingService.servir_imagem(avatar_data, mime_type)
     else:
         # Usuário não encontrado - retorna placeholder
-        placeholder_data = _gerar_placeholder(64, 64, "Usuário\nnão encontrado", 14)
-        return _servir_imagem(placeholder_data, 'image/png')
+        placeholder_data = ImageProcessingService.gerar_placeholder(64, 64,
+                                                                    "Usuário\nnão encontrado",
+                                                                    14)
+        return ImageProcessingService.servir_imagem(placeholder_data, 'image/png')
 
 
 @auth_bp.route('/', methods=['GET', 'POST'])
@@ -499,8 +452,8 @@ def profile():
                 current_user.otp_secret = None
                 db.session.commit()
                 current_app.logger.debug(
-                    "Secret órfão removido para usuário %s (sem token de ativação válido)" % (
-                        current_user.email,))
+                        "Secret órfão removido para usuário %s (sem token de ativação válido)" % (
+                            current_user.email,))
 
         form.id.data = str(current_user.id)
         form.nome.data = current_user.nome
@@ -558,11 +511,15 @@ def profile():
         form.id.data = str(current_user.id)
         form.email.data = current_user.email
 
+    backup_codes_count = 0
+    if current_user.usa_2fa:
+        backup_codes_count = Backup2FAService.contar_tokens_disponiveis(current_user)
+
     return render_template('auth/web/profile.jinja2',
                            title="Perfil do usuário",
                            title_card="Altere seus dados",
-                           form=form)
-
+                           form=form,
+                           backup_codes_count=backup_codes_count)
 
 @auth_bp.route('ativar_2fa', methods=['GET', 'POST'])
 @login_required
@@ -599,8 +556,8 @@ def ativar_2fa():
             current_user.otp_secret = None
             db.session.commit()
             current_app.logger.debug(
-                "Secret temporário removido para usuário %s (token inválido/expirado)" % (
-                    current_user.email,))
+                    "Secret temporário removido para usuário %s (token inválido/expirado)" % (
+                        current_user.email,))
 
         current_app.logger.warning(
                 "Falha no processo de ativação do 2FA a partir do IP %s: %s" % (
@@ -615,11 +572,11 @@ def ativar_2fa():
     app_name = current_app.config.get('APP_NAME', 'Sistema')
     qr_config = QRCodeConfig()
     qr_code_base64 = qr_service.generate_totp_qrcode(
-        secret=validacao.secret,
-        user=current_user.email,
-        issuer=app_name,
-        config=qr_config,
-        as_bytes=False
+            secret=validacao.secret,
+            user=current_user.email,
+            issuer=app_name,
+            config=qr_config,
+            as_bytes=False
     )
 
     form = Read2FACodeForm()
@@ -674,8 +631,8 @@ def disable_2fa():
     # Valida a senha
     if not current_user.check_password(senha):
         current_app.logger.warning(
-            "Tentativa de desativação de 2FA com senha incorreta para usuário %s a partir do IP %s" %
-            (current_user.email, request.remote_addr))
+                "Tentativa de desativação de 2FA com senha incorreta para usuário %s a partir do "
+                "IP %s" % (current_user.email, request.remote_addr))
         flash("Senha incorreta. A desativação do 2FA foi cancelada.", category='danger')
         return redirect(url_for('auth.profile'))
 

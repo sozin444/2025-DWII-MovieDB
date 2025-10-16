@@ -18,7 +18,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app import db
 from app.services.email_service import EmailValidationService
 from app.services.imageprocessing_service import ImageProcessingService
-from .custom_types import EncryptedType
+from .custom_types import EncryptedString
 from .mixins import AuditMixin, BasicRepositoryMixin
 
 
@@ -45,10 +45,9 @@ class User(db.Model, BasicRepositoryMixin, AuditMixin, UserMixin):
     foto_mime: Mapped[Optional[str]] = mapped_column(String(32), default=None)
 
     usa_2fa: Mapped[bool] = mapped_column(default=False, server_default='false')
-    _otp_secret: Mapped[Optional[str]] = mapped_column(
-            EncryptedType(length=500,
-                          encryption_key="DATABASE_ENCRYPTION_KEY",
-                          salt_key="DATABASE_ENCRYPTION_SALT"), default=None)
+    _otp_secret: Mapped[Optional[str]] = mapped_column(EncryptedString(length=500,
+                                                                       nullable=False,
+                                                                       default=None))
     ultimo_otp: Mapped[Optional[str]] = mapped_column(String(6), default=None)
 
     # Relação ORM para acessar os códigos de backup 2FA associados a este usuário.
