@@ -83,23 +83,35 @@ class SenhaComplexa(object):
             Teste('PASSWORD_SIMBOLO', "símbolos especiais", r'\W')
         ]
 
-        min_caracteres = current_app.config.get('PASSWORD_MIN', 0)
-        senha_valida = (len(field.data) >= min_caracteres)
-        mensagens = [f"pelo menos {min_caracteres} caracteres"]
+        senha_valida = True
+        mensagens = []
+
+        if current_app.config.get('PASSWORD_MIN', False):
+            try:
+                min_caracteres = int(current_app.config.get('PASSWORD_MIN', 0))
+            except (TypeError, ValueError):
+                current_app.logger.warning("PASSWORD_MIN deve ser inteiro")
+                min_caracteres = 0
+            senha_valida = senha_valida and (len(field.data) >= min_caracteres)
+            mensagens.append(f"pelo menos {min_caracteres} caracteres")
 
         for teste in lista_de_testes:
-            if current_app.config.get(teste.config, False):
+            config_value = current_app.config.get(teste.config, False)
+            if not isinstance(config_value, bool):
+                current_app.logger.warning("%s deve ser bool, mas é %s" %
+                                           (teste.config, type(config_value).__name__,))
+                config_value = False
+            if config_value:
                 senha_valida = senha_valida and (re.search(teste.re, field.data) is not None)
                 mensagens.append(teste.mensagem)
 
-        mensagem = "A sua senha precisa conter "
-        if len(mensagens) > 1:
-            mensagem = mensagem + " e ".join([", ".join(mensagens[:-1]), mensagens[-1]])
-        else:
-            mensagem = mensagem + mensagens[0]
-        mensagem = mensagem + "."
-
         if not senha_valida:
+            mensagem = "A sua senha precisa conter "
+            if len(mensagens) > 1:
+                mensagem = mensagem + " e ".join([", ".join(mensagens[:-1]), mensagens[-1]])
+            else:
+                mensagem = mensagem + mensagens[0]
+            mensagem = mensagem + "."
             raise ValidationError(mensagem)
 
         return
