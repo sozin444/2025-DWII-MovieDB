@@ -42,7 +42,8 @@ class User(db.Model, BasicRepositoryMixin, AuditMixin, UserMixin):
     com_foto: Mapped[bool] = mapped_column(default=False, server_default='false')
     foto_base64: Mapped[Optional[str]] = mapped_column(Text, default=None)
     avatar_base64: Mapped[Optional[str]] = mapped_column(Text, default=None)
-    foto_mime: Mapped[Optional[str]] = mapped_column(String(32), default=None)
+    # https://datatracker.ietf.org/doc/html/rfc6838#section-4.2
+    foto_mime: Mapped[Optional[str]] = mapped_column(String(129), default=None)
 
     usa_2fa: Mapped[bool] = mapped_column(default=False, server_default='false')
     _otp_secret: Mapped[Optional[str]] = mapped_column(EncryptedString(length=500,
