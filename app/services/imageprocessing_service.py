@@ -17,7 +17,7 @@ class ImageProcessingError(Exception):
 
 @dataclass
 class ImageProcessingResult:
-    foto_base64: str  # Foto original em base64
+    imagem_base64: str  # Imagem original em base64
     avatar_base64: str  # Avatar redimensionado em base64
     mime_type: str  # Tipo MIME da imagem
     formato_original: str  # Formato original (JPEG, PNG, etc)
@@ -79,24 +79,21 @@ class ImageProcessingService:
         try:
             # Lê os dados do arquivo
             arquivo_upload.seek(0)  # Garante que está no início
-            foto_data = arquivo_upload.read()
+            imagem_data = arquivo_upload.read()
 
-            if not foto_data:
+            if not imagem_data:
                 raise ValueError("Arquivo de imagem vazio")
 
             # Validação de tamanho
-            if len(foto_data) > max_file_size:
+            if len(imagem_data) > max_file_size:
                 raise ValueError(
                         f"Arquivo muito grande. Máximo permitido: "
                         f"{max_file_size / (1024 * 1024):.1f}MB")
 
             # Processa a imagem
-            return ImageProcessingService._processar_imagem_bytes(
-                    foto_data,
-                    arquivo_upload.mimetype,
-                    avatar_size,
-                    max_dimensions
-            )
+            return ImageProcessingService._processar_imagem_bytes(imagem_data,
+                                                                  arquivo_upload.mimetype,
+                                                                  avatar_size, max_dimensions)
 
         except (AttributeError, OSError) as e:
             raise ImageProcessingError(f"Erro ao processar arquivo de imagem: {str(e)}") from e
@@ -144,24 +141,20 @@ class ImageProcessingService:
                     raise ValueError("Formato de data URI inválido")
 
             # Decodifica base64
-            foto_data = b64decode(base64_string)
+            imagem_data = b64decode(base64_string)
 
-            if not foto_data:
+            if not imagem_data:
                 raise ValueError("Dados de imagem vazios após decodificação")
 
             # Validação de tamanho
-            if len(foto_data) > max_file_size:
+            if len(imagem_data) > max_file_size:
                 raise ValueError(
                         f"Arquivo muito grande. Máximo permitido: "
                         f"{max_file_size / (1024 * 1024):.1f}MB")
 
             # Processa a imagem
-            return ImageProcessingService._processar_imagem_bytes(
-                    foto_data,
-                    mime_type,
-                    avatar_size,
-                    max_dimensions
-            )
+            return ImageProcessingService._processar_imagem_bytes(imagem_data, mime_type,
+                                                                  avatar_size, max_dimensions)
 
         except (ValueError, TypeError) as e:
             if isinstance(e, ValueError):
@@ -169,14 +162,14 @@ class ImageProcessingService:
             raise ImageProcessingError(f"Erro ao decodificar base64: {str(e)}") from e
 
     @staticmethod
-    def _processar_imagem_bytes(foto_data: bytes,
+    def _processar_imagem_bytes(imagem_data: bytes,
                                 mime_type: str,
                                 avatar_size: int,
                                 max_dimensions: Tuple[int, int]) -> ImageProcessingResult:
         """Processa dados de imagem em bytes.
 
         Args:
-            foto_data (bytes): Dados da imagem em bytes.
+            imagem_data (bytes): Dados da imagem em bytes.
             mime_type (str): Tipo MIME fornecido pelo upload.
             avatar_size (int): Tamanho do avatar.
             max_dimensions (Tuple[int, int]): Dimensões máximas.
@@ -185,7 +178,7 @@ class ImageProcessingService:
             ImageProcessingResult: Resultado do processamento.
         """
         try:
-            with Image.open(io.BytesIO(foto_data)) as imagem:
+            with Image.open(io.BytesIO(imagem_data)) as imagem:
                 # Validações básicas
                 if not hasattr(imagem, 'format') or imagem.format is None:
                     raise ImageProcessingError("Formato de imagem não reconhecido")
@@ -204,21 +197,21 @@ class ImageProcessingService:
                                 1]} pixels")
 
                 # Salva foto original em buffer
-                buffer_foto = io.BytesIO()
-                imagem.save(buffer_foto, format=imagem.format, optimize=True)
-                foto_bytes = buffer_foto.getvalue()
+                buffer_imagem = io.BytesIO()
+                imagem.save(buffer_imagem, format=imagem.format, optimize=True)
+                foto_bytes = buffer_imagem.getvalue()
 
                 # Gera avatar
                 avatar_data, avatar_dims = ImageProcessingService._gerar_avatar(imagem, avatar_size)
 
                 return ImageProcessingResult(
-                        foto_base64=b64encode(foto_bytes).decode('utf-8'),
+                        imagem_base64=b64encode(foto_bytes).decode('utf-8'),
                         avatar_base64=b64encode(avatar_data).decode('utf-8'),
                         mime_type=mime_type,
                         formato_original=imagem.format,
                         dimensoes_originais=(largura_orig, altura_orig),
                         dimensoes_avatar=avatar_dims,
-                        tamanho_arquivo=len(foto_data))
+                        tamanho_arquivo=len(imagem_data))
 
         except Exception as e:
             if isinstance(e, (ImageProcessingError, ValueError)):
@@ -265,15 +258,15 @@ class ImageProcessingService:
     @staticmethod
     def generate_identicon_base64(data: str,
                                   grid_size: int = 8,
-                                  image_size: int = 120,
+                                  image_size: int = 128,
                                   foreground: Optional[list] = None,
                                   background: Optional[str] = None) -> tuple[str, str]:
         """Gera um identicon em PNG com fundo transparente, codificado em base64, a partir de uma string.
 
         Args:
             data (str): String usada para gerar o identicon (ex: e-mail ou nome de usuário).
-            grid_size (int, opcional): Número de blocos na grade (ex: 8 para 8x8). Padrão: 8. Máximo: 15.
-            image_size (int, opcional): Tamanho da imagem em pixels (ex: 240 para 240x240). Padrão: 120. Máximo: 256.
+            grid_size (int, opcional): Número de blocos na grade (ex: 8 para 8x8). Padrão: 9. Máximo: 15.
+            image_size (int, opcional): Tamanho da imagem em pixels (ex: 240 para 240x240). Padrão: 128. Máximo: 256.
             foreground (list, opcional): Lista de cores hexadecimais para o identicon. Padrão: uma paleta de cores.
             background (str, opcional): Cor de fundo em hexadecimal. Padrão: None (transparente).
 
@@ -321,8 +314,8 @@ class ImageProcessingService:
     @staticmethod
     def gerar_placeholder(largura: int,
                           altura: int,
-                          texto: Optional[str],
-                          tamanho_fonte: Optional[int]) -> bytes:
+                          texto: Optional[str] = None,
+                          tamanho_fonte: Optional[int] = None) -> bytes:
         """Gera uma imagem placeholder com texto centralizado.
 
         Args:

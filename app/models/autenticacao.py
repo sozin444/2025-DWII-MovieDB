@@ -9,17 +9,21 @@ Classes principais:
 import uuid
 from base64 import b64decode
 from datetime import datetime
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 
+from flask import current_app
 from flask_login import UserMixin
 from sqlalchemy import DateTime, ForeignKey, select, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app import db
 from app.services.email_service import EmailValidationService
-from app.services.imageprocessing_service import ImageProcessingService
+from app.services.imageprocessing_service import ImageProcessingError, ImageProcessingService
 from .custom_types import EncryptedString
 from .mixins import AuditMixin, BasicRepositoryMixin
+
+if TYPE_CHECKING:  # Para type checking e evitar importações circulares
+    from app.models.juncoes import Avaliacao  # noqa: F401
 
 
 class User(db.Model, BasicRepositoryMixin, AuditMixin, UserMixin):
@@ -58,6 +62,10 @@ class User(db.Model, BasicRepositoryMixin, AuditMixin, UserMixin):
             back_populates='usuario',
             lazy='dynamic'  # Permite usar como query, não carrega tudo de uma vez
     )
+
+    # Relacionamento: um usuário pode avaliar vários filmes
+    avaliacoes: Mapped[list['Avaliacao']] = relationship(back_populates='usuario',
+                                                         cascade='all, delete-orphan')
 
     @property
     def email(self):
@@ -175,7 +183,8 @@ class User(db.Model, BasicRepositoryMixin, AuditMixin, UserMixin):
             mime_type = self.foto_mime
         else:
             # Gera identicon quando não há foto
-            identicon_base64, mime_type = self.generate_identicon_base64()
+            identicon_base64, mime_type = ImageProcessingService. \
+                generate_identicon_base64(data=self.email)
             data = b64decode(identicon_base64)
         return data, mime_type
 
@@ -194,16 +203,20 @@ class User(db.Model, BasicRepositoryMixin, AuditMixin, UserMixin):
             mime_type = self.foto_mime
         else:
             # Gera identicon quando não há foto
-            identicon_base64, mime_type = self.generate_identicon_base64()
+            image_size = current_app.config.get("AVATAR_SIZE",
+                                                ImageProcessingService.DEFAULT_AVATAR_SIZE)
+            identicon_base64, mime_type = ImageProcessingService. \
+                generate_identicon_base64(data=self.email,
+                                          image_size=image_size)
             data = b64decode(identicon_base64)
         return data, mime_type
 
     @foto.setter
     def foto(self, value):
-        """Setter para a foto/avatar do usuário.
+        """Setter para a foto/avatar.
 
-        Atualiza os campos relacionados à foto do usuário. Se o valor for None,
-        remove a foto e limpa os campos associados. Caso contrário, tenta armazenar
+        Atualiza os campos relacionados à foto. Se o valor for None, remove a
+        foto e limpa os campos associados. Caso contrário, tenta armazenar
         a foto em base64 e o tipo MIME.
 
         IMPORTANTE: Este setter NÃO realiza commit. O chamador é responsável por
@@ -217,31 +230,29 @@ class User(db.Model, BasicRepositoryMixin, AuditMixin, UserMixin):
             ValueError: Se o valor fornecido for inválido.
         """
         if value is None:
-            self.com_foto = False
-            self.foto_base64 = None
-            self.avatar_base64 = None
-            self.foto_mime = None
+            self._clear_foto_fields()
         else:
-            resultado = ImageProcessingService.processar_upload_foto(value)
-            self.foto_base64 = resultado.foto_base64
-            self.avatar_base64 = resultado.avatar_base64
-            self.foto_mime = resultado.mime_type
-            self.com_foto = True
+            try:
+                resultado = ImageProcessingService.processar_upload_foto(value)
+            except (ImageProcessingError, ValueError):
+                self._clear_foto_fields()
+                raise
+            else:
+                self.foto_base64 = resultado.imagem_base64
+                self.avatar_base64 = resultado.avatar_base64
+                self.foto_mime = resultado.mime_type
+                self.com_foto = True
 
-    def generate_identicon_base64(self, grid_size: int = 9, image_size: int = 128) -> tuple[str, str]:
-        """Gera um identicon baseado no email do usuário e retorna em base64.
+    def _clear_foto_fields(self):
+        """Limpa os campos relacionados à foto.
 
-        Args:
-            grid_size (int): Tamanho da grade do identicon (padrão: 16).
-            image_size (int): Tamanho do identicon em pixels (padrão: 128).
-
-        Returns:
-            str: String base64 do identicon gerado.
-            str: Tipo MIME da imagem gerada (geralmente 'image/png').
+        Útil para operações internas onde a foto precisa ser removida
+        sem passar pelo setter público.
         """
-        return ImageProcessingService.generate_identicon_base64(self.email,
-                                                                grid_size=grid_size,
-                                                                image_size=image_size)
+        self.com_foto = False
+        self.foto_base64 = None
+        self.avatar_base64 = None
+        self.foto_mime = None
 
 
 class Backup2FA(db.Model, BasicRepositoryMixin, AuditMixin):

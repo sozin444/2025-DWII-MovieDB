@@ -173,3 +173,7 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+/seeder/images/
+/seeder/movies/
+/seeder/output/
+/seeder/person/

@@ -399,7 +399,7 @@ def foto(user_id):
         # Usuário não encontrado - retorna placeholder
         placeholder_data = ImageProcessingService.gerar_placeholder(300, 400,
                                                                     "Usuário\nnão encontrado",
-                                                                    48)
+                                                                    36)
         return ImageProcessingService.servir_imagem(placeholder_data, 'image/png')
 
 
@@ -426,7 +426,7 @@ def avatar(user_id):
         # Usuário não encontrado - retorna placeholder
         placeholder_data = ImageProcessingService.gerar_placeholder(64, 64,
                                                                     "Usuário\nnão encontrado",
-                                                                    14)
+                                                                    12)
         return ImageProcessingService.servir_imagem(placeholder_data, 'image/png')
 
 
