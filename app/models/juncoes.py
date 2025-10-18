@@ -57,8 +57,12 @@ class EquipeTecnica(db.Model, BasicRepositoryMixin, AuditMixin):
     creditado: Mapped[bool] = mapped_column(default=True, server_default='true')
 
     filme: Mapped["Filme"] = relationship(back_populates="equipe_tecnica")
-    pessoa: Mapped["Pessoa"] = relationship(back_populates="funcoes_tecnicas")
-    funcao_tecnica: Mapped["FuncaoTecnica"] = relationship(back_populates="pessoas_executando")
+    pessoa: Mapped["Pessoa"] = relationship(
+            back_populates="funcoes_tecnicas",
+            overlaps="funcoes_tecnicas_executadas,pessoas,pessoas_executando")
+    funcao_tecnica: Mapped["FuncaoTecnica"] = relationship(
+            back_populates="pessoas_executando",
+            overlaps="funcoes_tecnicas_executadas,pessoas,funcoes_tecnicas")
 
 
 class Avaliacao(db.Model, BasicRepositoryMixin, AuditMixin):

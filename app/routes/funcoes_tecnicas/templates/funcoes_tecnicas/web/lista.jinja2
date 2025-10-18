@@ -1,0 +1,94 @@
+{% extends '_layout.jinja2' %}
+{% from 'bootstrap5/utils.html' import render_icon %}
+{% from 'bootstrap5/pagination.html' import render_pagination %}
+{% from 'pagination_helpers.jinja2' import linhas_por_pagina, busca_parcial, ativo_ou_nao %}
+
+{% block content %}
+    <div class="d-flex flex-column min-vh-100 justify-content-center align-items-center p-5">
+        <div style="max-width: 1200px; width: 100%;">
+            <!-- Filtragem -->
+            <div class="mb-4">
+                <div class="clearfix small">
+                    <form id="filter_form" action="{{ url_for('funcao_tecnica.listar_funcoes_tecnicas') }}" method="GET">
+                        <div class="float-start align-top align-text-top">
+                            <div class="hstack g-3">
+                                {{ linhas_por_pagina(pp) }}
+                                {{ busca_parcial(q, "Parte do nome:") }}
+                                {{ ativo_ou_nao(a) }}
+                            </div>
+                        </div>
+                        <div class="float-end p-2">
+                            <button type="submit" class="btn btn-secondary" form="filter_form">Filtrar
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Tabela de resultados -->
+            <div class="mb-4">
+                <table class="table table-sm table-striped table-hover">
+                    <thead>
+                    <tr class="align-bottom">
+                        <th scope="col">Nome</th>
+                        <th scope="col">Descrição</th>
+                        <th scope="col" class="text-center">Ativo</th>
+                        <th scope="col" class="text-center">Operações</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    {% for ft in rset_page %}
+                        <tr>
+                            <td class="align-middle"><strong>{{ ft.nome }}</strong></td>
+                            <td class="align-middle">
+                                {%- if ft.descricao and ft.descricao|length > 100 -%}
+                                    {{ ft.descricao[:100] }}...
+                                {%- elif ft.descricao -%}
+                                    {{ ft.descricao }}
+                                {%- else -%}
+                                    N/A
+                                {%- endif -%}
+                            </td>
+
+                            <td class="text-center align-middle">
+                                {%- if ft.ativo -%}
+                                    {{ render_icon('check', color='success', size='2em', title='Ativo') }}
+                                {%- else -%}
+                                    {{ render_icon('x', color='danger', size='2em', title='Inativo') }}
+                                {%- endif -%}
+                            </td>
+                            <td class="text-center align-middle">
+                                <div class="btn-group" role="group">
+                                    <a class="btn btn-outline-primary py-2 px-4"
+                                       href="{{ url_for('funcao_tecnica.editar_funcao_tecnica', funcao_tecnica_id=ft.id) }}"
+                                       role="button">{{ render_icon('pencil-square', size='1.25em', title="Editar") }}</a>
+                                </div>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Paginação -->
+            <div>
+                <div class="clearfix">
+                    <div class="float-start small">
+                        Mostrando itens {{ rset_page.first }} a {{ rset_page.last }} de um total
+                        de {{ rset_page.total }}
+                    </div>
+                    <div class="float-end">
+                        {{ render_pagination(rset_page, 'funcao_tecnica.listar_funcoes_tecnicas',
+                                                    size='sm',
+                                                    align='right',
+                                                    args={ 'pp': pp,
+                                                           'a' : a,
+                                                           'q' : q,
+                                                           'page': page}) }}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}

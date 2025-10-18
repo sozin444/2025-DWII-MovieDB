@@ -134,6 +134,12 @@ Para utilizar um arquivo de configuração diferente, especifique o nome do arqu
   - PostgreSQL: `"postgresql://user:password@localhost/dbname"`
   - MySQL: `"mysql://user:password@localhost/dbname"`
 
+#### `MAX_PER_PAGE`
+- **Tipo**: Integer
+- **Padrão**: `500`
+- **Descrição**: Número máximo de itens por página em paginação
+- **Exemplo**: `50`
+
 ### Interface (Bootstrap)
 
 #### `BOOTSTRAP_SERVE_LOCAL` (opcional)

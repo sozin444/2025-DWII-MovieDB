@@ -13,6 +13,7 @@ from app.services.imageprocessing_service import ImageProcessingError, ImageProc
 if TYPE_CHECKING:  # Para type checking e evitar importações circulares
     from app.models.juncoes import FilmeGenero, Atuacao, EquipeTecnica, Avaliacao  # noqa: F401
     from app.models.autenticacao import User  # noqa: F401
+    from app.models.pessoa import Pessoa  # noqa: F401
 
 
 class Filme(db.Model, BasicRepositoryMixin, AuditMixin):
@@ -132,7 +133,7 @@ class Genero(db.Model, BasicRepositoryMixin, AuditMixin):
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     nome: Mapped[str] = mapped_column(String(40), unique=True)
-    descricao: Mapped[Optional[str]] = mapped_column(String(255))
+    descricao: Mapped[Optional[str]] = mapped_column(String(1024))
     ativo: Mapped[bool] = mapped_column(default=True, server_default='true')
 
     filme_generos: Mapped[list["FilmeGenero"]] = relationship(back_populates="genero",
@@ -148,8 +149,15 @@ class FuncaoTecnica(db.Model, BasicRepositoryMixin, AuditMixin):
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     nome: Mapped[str] = mapped_column(String(100), unique=True)
+    descricao: Mapped[Optional[str]] = mapped_column(String(1024))
     ativo: Mapped[bool] = mapped_column(default=True, server_default='true')
 
     pessoas_executando: Mapped[list["EquipeTecnica"]] = relationship(
             back_populates="funcao_tecnica",
-            cascade="all, delete-orphan")
+            cascade="all, delete-orphan",
+            overlaps="funcoes_tecnicas_executadas,pessoas,funcoes_tecnicas")
+
+    pessoas: Mapped[list["Pessoa"]] = relationship(
+            secondary="equipes_tecnicas",
+            back_populates="funcoes_tecnicas_executadas",
+            overlaps="pessoas_executando")

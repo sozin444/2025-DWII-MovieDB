@@ -10,6 +10,7 @@ from app.models.mixins import AuditMixin, BasicRepositoryMixin
 
 if TYPE_CHECKING:  # Para type checking e evitar importações circulares
     from app.models.juncoes import Atuacao, EquipeTecnica  # noqa: F401
+    from app.models.filme import FuncaoTecnica  # noqa: F401
 
 
 class Pessoa(db.Model, BasicRepositoryMixin, AuditMixin):
@@ -27,8 +28,15 @@ class Pessoa(db.Model, BasicRepositoryMixin, AuditMixin):
     ator: Mapped[Optional["Ator"]] = relationship(back_populates="pessoa",
                                                   cascade="all, delete-orphan")
 
-    funcoes_tecnicas: Mapped[list["EquipeTecnica"]] = relationship(back_populates="pessoa",
-                                                                   cascade="all, delete-orphan")
+    funcoes_tecnicas: Mapped[list["EquipeTecnica"]] = relationship(
+            back_populates="pessoa",
+            cascade="all, delete-orphan",
+            overlaps="funcoes_tecnicas_executadas,pessoas_executando,pessoas")
+
+    funcoes_tecnicas_executadas: Mapped[list["FuncaoTecnica"]] = relationship(
+            secondary="equipes_tecnicas",
+            back_populates="pessoas",
+            overlaps="funcoes_tecnicas,pessoas_executando")
 
 
 class Ator(db.Model, BasicRepositoryMixin, AuditMixin):

@@ -130,8 +130,12 @@ def create_app(config_filename: str = 'config.dev.json') -> Flask:
     app.logger.debug("Registrando blueprints")
     from .routes.root import root_bp
     from .routes.auth import auth_bp
+    from .routes.generos import genero_bp
+    from .routes.funcoes_tecnicas import funcao_tecnica_bp
     app.register_blueprint(auth_bp)
     app.register_blueprint(root_bp)
+    app.register_blueprint(genero_bp)
+    app.register_blueprint(funcao_tecnica_bp)
 
     app.logger.debug("Registrando modulos")
     bootstrap.init_app(app)
