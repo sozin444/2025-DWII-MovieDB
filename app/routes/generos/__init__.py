@@ -68,7 +68,7 @@ def listar_generos():
         rset_page = db.paginate(sentenca, page=page, per_page=pp, max_per_page=MAX_PER_PAGE,
                                 error_out=True)
 
-    return render_template('generos/web/lista.jinja2',
+    return render_template('genero/web/lista.jinja2',
                            title="Lista de gêneros",
                            rset_page=rset_page,
                            page=page,
@@ -103,13 +103,13 @@ def editar_genero(genero_id: uuid.UUID):
         try:
             db.session.commit()
             flash("Gênero atualizado com sucesso.", category='success')
-            return redirect(url_for('generos.listar_generos'))
+            return redirect(url_for('genero.listar_generos'))
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f"Erro ao atualizar gênero: {e}")
             flash("Ocorreu um erro ao atualizar o gênero. Tente novamente.", category='danger')
 
-    return render_template('generos/web/editar.jinja2',
+    return render_template('genero/web/editar.jinja2',
                            title="Editar gênero",
                            form=form,
                            numero_de_filmes=numero_de_filmes)

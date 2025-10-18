@@ -69,7 +69,7 @@ def listar_funcoes_tecnicas():
         rset_page = db.paginate(sentenca, page=page, per_page=pp, max_per_page=MAX_PER_PAGE,
                                 error_out=True)
 
-    return render_template('funcoes_tecnicas/web/lista.jinja2',
+    return render_template('funcao_tecnica/web/lista.jinja2',
                            title="Lista de funções técnicas",
                            rset_page=rset_page,
                            page=page,
@@ -113,13 +113,13 @@ def editar_funcao_tecnica(funcao_tecnica_id: uuid.UUID):
         try:
             db.session.commit()
             flash("Função técnica atualizada com sucesso.", category='success')
-            return redirect(url_for('funcoes_tecnicas.listar_funcoes_tecnicas'))
+            return redirect(url_for('funcao_tecnica.listar_funcoes_tecnicas'))
         except Exception as e:
             db.session.rollback()
             current_app.logger.error(f"Erro ao atualizar função técnica: {e}")
             flash("Ocorreu um erro ao atualizar a função técnica. Tente novamente.", category='danger')
 
-    return render_template('funcoes_tecnicas/web/editar.jinja2',
+    return render_template('funcao_tecnica/web/editar.jinja2',
                            title="Editar função técnica",
                            form=form,
                            numero_de_pessoas=numero_de_pessoas)
