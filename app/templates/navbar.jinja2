@@ -42,6 +42,21 @@
                         </ul>
                     </li>
 
+                    <!-- Menu tabelas de suporte -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="suporteDropdown"
+                           role="button"
+                           data-bs-toggle="dropdown" aria-expanded="false">
+                            {{ render_icon('gear-wide-connected') }} Tabelas de suporte
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="suporteDropdown">
+                            <li><a class="dropdown-item"
+                                   href="{{ url_for('funcao_tecnica.listar_funcoes_tecnicas') }}">{{ render_icon('tools') }} Funções Técnicas</a></li>
+                            <li><a class="dropdown-item"
+                                   href="{{ url_for('genero.listar_generos') }}"> {{ render_icon('tags') }} Gêneros</a></li>
+                        </ul>
+                    </li>
+
                     <!-- Menu Pessoas -->
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" id="pessoasDropdown"

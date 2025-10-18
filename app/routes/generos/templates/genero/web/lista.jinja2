@@ -6,6 +6,13 @@
 {% block content %}
     <div class="d-flex flex-column min-vh-100 justify-content-center align-items-center p-5">
         <div style="max-width: 1200px; width: 100%;">
+            <!-- Cabeçalho -->
+            <div class="mb-4">
+                <h4 class="fw-bold">
+                    {{ render_icon('tags', size='1.5em') }} Gêneros
+                </h4>
+            </div>
+
             <!-- Filtragem -->
             <div class="mb-4">
                 <div class="clearfix small">
@@ -18,8 +25,14 @@
                             </div>
                         </div>
                         <div class="float-end p-2">
-                            <button type="submit" class="btn btn-secondary" form="filter_form">Filtrar
-                            </button>
+                            <div class="btn-group" role="group">
+                                <button type="submit" class="btn btn-secondary" form="filter_form">
+                                    {{ render_icon('funnel', size='1em') }} Filtrar
+                                </button>
+                                <a href="{{ url_for('genero.criar_genero') }}" class="btn btn-primary">
+                                    {{ render_icon('plus-circle', size='1em') }} Novo
+                                </a>
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -61,6 +74,14 @@
                                     <a class="btn btn-outline-primary py-2 px-4"
                                        href="{{ url_for('genero.editar_genero', genero_id=g.id) }}"
                                        role="button">{{ render_icon('pencil-square', size='1.25em', title="Editar") }}</a>
+                                    <form method="POST" action="{{ url_for('genero.deletar_genero', genero_id=g.id) }}"
+                                          onsubmit="return confirm('Tem certeza que deseja excluir o gênero \'{{ g.nome }}\'?');"
+                                          style="display: inline;">
+                                        {{ csrf_form.hidden_tag() }}
+                                        <button type="submit" class="btn btn-outline-danger py-2 px-4">
+                                            {{ render_icon('trash', size='1.25em', title="Excluir") }}
+                                        </button>
+                                    </form>
                                 </div>
                             </td>
                         </tr>
