@@ -101,6 +101,7 @@ def editar_funcao_tecnica(funcao_tecnica_id: uuid.UUID):
     if request.method == 'GET':
         # Preenche o formulário com os dados atuais da função técnica
         form.nome.data = funcao_tecnica.nome
+        form.descricao.data = funcao_tecnica.descricao
         form.ativo.data = funcao_tecnica.ativo
 
     if form.validate_on_submit():
