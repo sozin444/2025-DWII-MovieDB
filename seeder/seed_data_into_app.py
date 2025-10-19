@@ -55,7 +55,7 @@ class TMDBImageFetcher:
 
         try:
             # Criar diretório de cache se não existir
-            cache_dir = Path("images")
+            cache_dir = Path("seeder/images")
             cache_dir.mkdir(exist_ok=True)
             
             # Nome do arquivo local (remover a barra inicial do image_path)
@@ -357,10 +357,10 @@ def main():
     with app.app_context():
         try:
             # Criar dados
-            generos = criar_generos(Path("output/movies/generos.txt"))
-            funcoes = criar_funcoes_tecnicas(Path("output/movies/funcoes_tecnicas.txt"))
-            pessoas = criar_pessoas(Path("output/person"), fetch_image=True)
-            filmes = criar_filmes(Path("output/movies"), generos, pessoas, funcoes, fetch_image=True)
+            generos = criar_generos(Path("seeder/output/movies/generos.txt"))
+            funcoes = criar_funcoes_tecnicas(Path("seeder/output/movies/funcoes_tecnicas.txt"))
+            pessoas = criar_pessoas(Path("seeder/output/person"), fetch_image=True)
+            filmes = criar_filmes(Path("seeder/output/movies"), generos, pessoas, funcoes, fetch_image=True)
 
             print("\n" + "=" * 80)
             print("✅ SEED CONCLUÍDO COM SUCESSO!")

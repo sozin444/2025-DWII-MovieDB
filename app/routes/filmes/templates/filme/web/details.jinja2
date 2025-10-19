@@ -5,43 +5,22 @@
         <div style="max-width: 800px; width: 100%;">
             <div class="card">
                 <div class="card-header">
-                    <div class="row">
-                        <div class="col-md-4">
+                    <div class="row align-items-start g-0" style="margin: 0;">
+                        <div class="col-md-4 pe-3">
                             <!-- Poster do filme -->
                             <img src="{{ url_for('filme.filme_poster', filme_id=filme.id) }}"
                                  alt="Poster de {{ filme.titulo_portugues or filme.titulo_original }}"
                                  class="rounded"
-                                 style="height: 400px; width: auto; object-fit: contain; max-width: 100%;">
+                                 style="height: 400px; width: auto; object-fit: contain; max-width: 100%; vertical-align: top; display: block;">
                         </div>
-                        <div class="col-md-8">
-                            <!-- Título do filme -->
-                            <h2 class="card-title" style="line-height: 1.2;">
-                                {{ filme.titulo_portugues or filme.titulo_original }}
-                                {% if filme.titulo_portugues != filme.titulo_original %}
-                                    <small style="display: block; font-size: 0.6em;">{{ filme.titulo_original }}</small>
-                                {% endif %}
-                            </h2>
-                            <!-- Ano e duração -->
-                            <p class="text-muted mb-3">
-                                <strong>{{ filme.ano_lancamento }}</strong>
-                                {% if filme.duracao_minutos %}
-                                    • {{ filme.duracao_formatada }}
-                                {% endif %}
-                            </p>
-
+                        <div class="col-md-8 ps-3">
+                            <!-- Header do filme -->
+                            {% include 'filme/web/_header_filme.jinja2' %}
                             <!-- Sinopse -->
                             {% if filme.sinopse %}
                                 <p class="mb-3">{{ filme.sinopse }}</p>
                             {% endif %}
 
-                            <!-- Gêneros -->
-                            {% if filme.listar_nomes_generos %}
-                                <div class="mb-3">
-                                    {% for genero in filme.listar_nomes_generos %}
-                                        <span class="badge bg-secondary me-1">{{ genero }}</span>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
                         </div>
                     </div>
                     <div class="row">
@@ -67,7 +46,7 @@
                                                 <div>
                                                     <!-- Nome da pessoa -->
                                                     <div>
-                                                        <a href="#" class="text-decoration-none">
+                                                        <a href="{{ url_for('pessoa.pessoa_detalhes', pessoa_id=id_ator) }}" class="text-decoration-none">
                                                             <strong>{{ nome }}</strong>
                                                         </a>
                                                     </div>
@@ -103,7 +82,7 @@
                                                 <div>
                                                     <!-- Nome da pessoa -->
                                                     <div>
-                                                        <a href="#" class="text-decoration-none">
+                                                        <a href="{{ url_for('pessoa.pessoa_detalhes', pessoa_id=id_pessoa) }}" class="text-decoration-none">
                                                             <strong>{{ nome }}</strong>
                                                         </a>
                                                     </div>

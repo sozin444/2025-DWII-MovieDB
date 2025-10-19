@@ -46,7 +46,7 @@ def random_filme():
     # Buscar todas as avaliações do filme
     avaliacoes = ReviewService.obter_avaliacoes_filme(filme)
 
-    return render_template('filme/web/random.jinja2',
+    return render_template('filme/web/details.jinja2',
                            title=f"Detalhes de '{filme.titulo_portugues}'",
                            elenco=elenco,
                            equipe_tecnica=equipe_tecnica,
@@ -187,7 +187,7 @@ def detail_filme(filme_id):
     # Buscar todas as avaliações do filme
     avaliacoes = ReviewService.obter_avaliacoes_filme(filme)
 
-    return render_template('filme/web/random.jinja2',
+    return render_template('filme/web/details.jinja2',
                            title=f"Detalhes de '{filme.titulo_portugues}'",
                            elenco=elenco,
                            equipe_tecnica=equipe_tecnica,
@@ -196,3 +196,31 @@ def detail_filme(filme_id):
                            form=form,
                            avaliacao_usuario=avaliacao_usuario,
                            avaliacoes=avaliacoes)
+
+
+@filme_bp.route('/', methods=['GET'])
+def listar_filmes():
+    """Apresenta um mosaico de posteres de filmes com link para detalhes do filme
+
+    Returns:
+        Template renderizado com mosaico de posteres paginados
+    """
+    from sqlalchemy import func
+    
+    # Aplicar ordenação aleatória na query
+    # Como o CrudService não suporta func.random(), vamos fazer uma query customizada
+    stmt = select(Filme).order_by(func.random()).limit(24)
+    filmes = db.session.execute(stmt).scalars().all()
+    
+    # Calcular estatísticas para cada filme
+    filmes_com_stats = []
+    for filme in filmes:
+        stats = FilmeService.obter_estatisticas_avaliacoes(filme)
+        filmes_com_stats.append({
+            'filme': filme,
+            'stats': stats
+        })
+    
+    return render_template('filme/web/lista.jinja2',
+                           title="Lista de Filmes",
+                           filmes_com_stats=filmes_com_stats)
