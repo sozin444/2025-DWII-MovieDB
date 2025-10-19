@@ -1,20 +1,20 @@
 {% macro barra_navegacao() %}
     {% from 'bootstrap5/utils.html' import render_icon %}
     <nav class="navbar navbar-expand-lg bg-primary-subtle fixed-top rounded-4 shadow-sm mt-3 mx-3 px-3 py-3">
-        <div class="container-fluid position-relative">
+        <div class="container-fluid">
             <!-- Brand -->
-            <a class="navbar-brand" href="{{ url_for('root.index') }}">
+            <a class="navbar-brand me-3" href="{{ url_for('root.index') }}">
                 myMovieDB <small>beta</small>
             </a>
 
-            <!-- Search form -->
-            <form class="search-form d-flex" role="search" action="#" method="get">
-                <input class="form-control" type="search" name="q"
+            <!-- Search form - compact version -->
+            <form class="d-flex flex-grow-1 mx-3 d-none d-lg-flex" role="search" action="#" method="get" style="max-width: 400px;">
+                <input class="form-control form-control-sm" type="search" name="q"
                        placeholder="Buscar filmes ou pessoas" aria-label="Buscar">
                 <button class="btn btn-primary btn-sm ms-2" type="submit">Buscar</button>
             </form>
 
-            <!-- Navbar toggler and menus -->
+            <!-- Navbar toggler -->
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse"
                     data-bs-target="#topNavbar" aria-controls="topNavbar" aria-expanded="false"
                     aria-label="Alternar navegação">
@@ -22,6 +22,12 @@
             </button>
 
             <div class="collapse navbar-collapse" id="topNavbar">
+                <!-- Mobile search form -->
+                <form class="d-flex d-lg-none mb-3 mt-2" role="search" action="#" method="get">
+                    <input class="form-control form-control-sm" type="search" name="q"
+                           placeholder="Buscar filmes ou pessoas" aria-label="Buscar">
+                    <button class="btn btn-primary btn-sm ms-2" type="submit">Buscar</button>
+                </form>
                 <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
 
                     <!-- Menu Filmes -->
@@ -32,7 +38,7 @@
                             {{ render_icon('film') }} Filmes
                         </a>
                         <ul class="dropdown-menu" aria-labelledby="filmesDropdown">
-                            <li><a class="dropdown-item" href="#">Lista</a></li>
+                            <li><a class="dropdown-item" href="{{ url_for('filme.listar_filmes') }}">Lista</a></li>
                             <li><a class="dropdown-item" href="#">Populares</a></li>
                             <li><a class="dropdown-item" href="#">Em cartaz</a></li>
                             <li>

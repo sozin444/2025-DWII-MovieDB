@@ -8,6 +8,7 @@ Este documento descreve o processo completo para popular o banco de dados do myM
 - Conta no TMDB com chave de API
 - Banco de dados configurado e migrations aplicadas
 - Dependências instaladas conforme `seeder/requirements.txt`
+- **(Opcional)** Chave da API da OpenAI para gerar descrições com IA
 
 ## 1. Obter Chave da API do TMDB
 
@@ -97,6 +98,7 @@ python fetch_data.py --fetch-persons --language pt-BR
 
 **Opções disponíveis:**
 - `--fetch-persons`: Busca também os detalhes das pessoas (elenco e equipe técnica)
+- `--fetch-main-roles`: Garante que as funções técnicas básicas serão importadas (Director, Editor, Producer, etc.)
 - `--max-people N`: Limita o número de pessoas a buscar (0 = sem limite)
 - `--language LANG`: Define o idioma dos dados (padrão: pt-BR)
 - `--movies-file FILE`: Especifica o arquivo com IDs dos filmes (padrão: movies_id.txt)
@@ -105,6 +107,13 @@ python fetch_data.py --fetch-persons --language pt-BR
 ```bash
 python fetch_data.py --fetch-persons --max-people 10 --language pt-BR
 ```
+
+**Exemplo garantindo funções técnicas principais:**
+```bash
+python fetch_data.py --fetch-persons --fetch-main-roles --max-people 5 --language pt-BR
+```
+
+**Nota:** As funções técnicas básicas são: Director, Editor, Executive Producer, Novel, Producer, Screenplay, Special Effects, Writer.
 
 **Saída esperada:**
 - Arquivos JSON em `seeder/movies/` com dados dos filmes e créditos
@@ -186,7 +195,140 @@ Resumo:
   • W filmes
 ```
 
-## 5. Verificar Dados no Banco
+## 5. Adicionar Descrições com IA (Opcional)
+
+Após popular o banco de dados, você pode adicionar descrições detalhadas para funções técnicas e gêneros cinematográficos usando IA.
+
+### Configurar Chave da OpenAI (Opcional)
+
+Para gerar descrições de alta qualidade usando IA, configure a chave da API da OpenAI:
+
+1. **Obter chave da API:**
+   - Acesse [https://platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+   - Crie uma nova chave de API
+
+2. **Configurar a chave:**
+
+   **Windows (PowerShell):**
+   ```powershell
+   $Env:OPENAI_API_KEY="sua_chave_aqui"
+   ```
+
+   **Windows (CMD):**
+   ```cmd
+   set OPENAI_API_KEY=sua_chave_aqui
+   ```
+
+   **Linux/macOS:**
+   ```bash
+   export OPENAI_API_KEY="sua_chave_aqui"
+   ```
+
+   **Alternativa (arquivo .env):**
+
+   Edite o arquivo `seeder/.env` e adicione:
+   ```
+   OPENAI_API_KEY=sua_chave_aqui
+   ```
+
+**Nota:** Se não configurar a chave da OpenAI, o script usará descrições de fallback básicas.
+
+### Executar Script de Descrições
+
+Navegue até o diretório `seeder` e execute:
+
+```bash
+cd seeder
+python seed_all_descriptions.py
+```
+
+**Opções disponíveis:**
+
+```bash
+# Processar tudo (padrão)
+python seed_all_descriptions.py
+
+# Apenas funções técnicas
+python seed_all_descriptions.py --funcoes
+
+# Apenas gêneros cinematográficos
+python seed_all_descriptions.py --generos
+
+# Forçar atualização de TODAS as descrições (mesmo as que já existem)
+python seed_all_descriptions.py --force
+
+# Combinar opções
+python seed_all_descriptions.py --funcoes --force
+```
+
+### Como Funciona
+
+#### Para Funções Técnicas
+- **Prompt:** "Na indústria cinematográfica, o que faz um {nome_da_funcao}? Responda em menos de 1000 caracteres em português brasileiro."
+- **Fallback:** "Profissional responsável pela função de {nome} na produção cinematográfica."
+
+**Exemplo de descrição gerada:**
+> "O diretor é responsável pela visão criativa geral do filme, coordenando todos os aspectos artísticos e técnicos da produção..."
+
+#### Para Gêneros Cinematográficos
+- **Prompt:** "Descreva as principais características do gênero cinematográfico {nome_do_genero}, e liste três filmes clássicos desse gênero. Responda em menos de 1000 caracteres em português brasileiro."
+- **Fallback:** "Gênero cinematográfico {nome} com características e elementos específicos que o distinguem de outros gêneros."
+
+**Exemplo de descrição gerada:**
+> "O gênero de ação caracteriza-se por sequências dinâmicas, perseguições, lutas e explosões. Filmes clássicos: Die Hard (1988), Mad Max: Fury Road (2015), Terminator 2 (1991)."
+
+### Saída Esperada
+
+```
+================================================================================
+SEED DE DESCRIÇÕES - COMPLETO
+================================================================================
+
+📝 PROCESSANDO FUNÇÕES TÉCNICAS
+--------------------------------------------------
+Encontradas 5 funções técnicas sem descrição
+[1/5] Director
+  ✓ IA: O diretor é responsável pela visão criativa geral do filme...
+[2/5] Producer
+  ✓ IA: O produtor supervisiona todos os aspectos da produção...
+
+📝 PROCESSANDO GÊNEROS CINEMATOGRÁFICOS
+--------------------------------------------------
+Encontrados 3 gêneros sem descrição
+[1/3] Action
+  ✓ IA: O gênero de ação caracteriza-se por sequências dinâmicas...
+
+================================================================================
+✅ SEED COMPLETO CONCLUÍDO!
+================================================================================
+Resumo geral:
+  • 7 descrições geradas com IA
+  • 1 descrições de fallback
+  • 8 itens processados
+```
+
+### Scripts Individuais
+
+Se preferir executar separadamente:
+
+```bash
+# Apenas funções técnicas
+python seed_funcao_tecnica_descriptions.py
+
+# Apenas gêneros cinematográficos
+python seed_genero_descriptions.py
+```
+
+### Recursos
+- **Processamento inteligente:** Por padrão, só processa itens sem descrição
+- **Modo força:** Atualiza todas as descrições, mesmo as existentes
+- **Processamento seletivo:** Pode processar apenas funções ou apenas gêneros
+- **Fallback automático:** Funciona mesmo sem OpenAI API key
+- **Rate limiting:** Pausas entre chamadas para respeitar limites da API
+- **Commit incremental:** Salva progresso a cada item processado
+- **Tratamento de erros:** Continua processando mesmo se alguns itens falharem
+
+## 6. Verificar Dados no Banco
 
 Após o seed, você pode verificar se os dados foram inseridos corretamente:
 
@@ -208,6 +350,147 @@ pessoas = Pessoa.query.all()
 for p in pessoas:
     print(p.nome)
 ```
+
+## 7. Exemplo de Fluxo Completo de Seeding
+
+Este exemplo demonstra o processo completo de seeding, do início ao fim, incluindo geração de descrições com IA.
+
+### Passo a Passo
+
+**1. Configurar variáveis de ambiente:**
+
+```powershell
+# Windows PowerShell
+$Env:TMDB_API_KEY="sua_chave_tmdb_aqui"
+$Env:OPENAI_API_KEY="sua_chave_openai_aqui"  # Opcional
+```
+
+**2. Preparar lista de filmes:**
+
+Edite `seeder/movies_id.txt` e adicione os IDs dos filmes desejados:
+```
+550        # Fight Club
+680        # Pulp Fiction
+278        # The Shawshank Redemption
+13         # Forrest Gump
+```
+
+**3. Instalar dependências:**
+
+```bash
+cd seeder
+pip install -r requirements.txt
+```
+
+**4. Buscar dados do TMDB:**
+
+```bash
+# Opção 1: Buscar todos os dados (sem limite de pessoas)
+python fetch_data.py --fetch-persons --fetch-main-roles --language pt-BR
+
+# Opção 2: Limitar número de pessoas (mais rápido)
+python fetch_data.py --fetch-persons --fetch-main-roles --max-people 15 --language pt-BR
+```
+
+**5. Processar dados baixados:**
+
+```bash
+python process_data.py
+```
+
+**6. Inserir dados no banco:**
+
+```bash
+cd ..
+python -m seeder.seed_data_into_app
+```
+
+**7. Gerar descrições com IA (opcional):**
+
+```bash
+cd seeder
+python seed_all_descriptions.py
+```
+
+### Fluxo Completo em Um Único Bloco
+
+Para conveniência, aqui está toda a sequência de comandos:
+
+```powershell
+# 1. Configurar variáveis de ambiente (Windows PowerShell)
+$Env:TMDB_API_KEY="sua_chave_tmdb_aqui"
+$Env:OPENAI_API_KEY="sua_chave_openai_aqui"
+
+# 2. Navegar para o diretório seeder
+cd seeder
+
+# 3. Instalar dependências (apenas na primeira vez)
+pip install -r requirements.txt
+
+# 4. Buscar dados do TMDB
+python fetch_data.py --fetch-persons --fetch-main-roles --max-people 15 --language pt-BR
+
+# 5. Processar dados
+python process_data.py
+
+# 6. Voltar para raiz e inserir no banco
+cd ..
+python -m seeder.seed_data_into_app
+
+# 7. Gerar descrições com IA
+cd seeder
+python seed_all_descriptions.py
+
+# 8. Voltar para raiz
+cd ..
+```
+
+### Versão para Linux/macOS
+
+```bash
+# 1. Configurar variáveis de ambiente
+export TMDB_API_KEY="sua_chave_tmdb_aqui"
+export OPENAI_API_KEY="sua_chave_openai_aqui"
+
+# 2. Navegar para o diretório seeder
+cd seeder
+
+# 3. Instalar dependências (apenas na primeira vez)
+pip install -r requirements.txt
+
+# 4. Buscar dados do TMDB
+python fetch_data.py --fetch-persons --fetch-main-roles --max-people 15 --language pt-BR
+
+# 5. Processar dados
+python process_data.py
+
+# 6. Voltar para raiz e inserir no banco
+cd ..
+python -m seeder.seed_data_into_app
+
+# 7. Gerar descrições com IA
+cd seeder
+python seed_all_descriptions.py
+
+# 8. Voltar para raiz
+cd ..
+```
+
+### Tempo Estimado
+
+- **Buscar dados do TMDB**: ~2-5 minutos (depende do número de filmes e pessoas)
+- **Processar dados**: ~10-30 segundos
+- **Inserir no banco**: ~1-3 minutos (depende do número de registros)
+- **Gerar descrições com IA**: ~1-2 minutos (depende do número de itens sem descrição)
+
+**Total**: ~5-10 minutos para o processo completo
+
+### Notas
+
+- Se não configurar `OPENAI_API_KEY`, o script de descrições usará fallback automático
+- Use `--max-people 0` em `fetch_data.py` para buscar todas as pessoas (mais lento)
+- Os scripts verificam arquivos existentes e pulam downloads duplicados
+- Para reprocessar tudo do zero, delete os diretórios `seeder/movies/`, `seeder/person/` e `seeder/output/`
 
 ## Problemas Comuns
 
@@ -231,20 +514,24 @@ O script cria automaticamente uma pessoa básica (apenas com nome) se ela não f
 
 ```
 seeder/
-├── fetch_data.py              # Script para buscar dados do TMDB
-├── process_data.py            # Script para processar dados
-├── seed_data_into_app.py      # Script para inserir no banco
-├── movies_id.txt              # Lista de IDs de filmes
-├── requirements.txt           # Dependências do seeder
-├── movies/                    # Dados brutos dos filmes (JSON)
-├── person/                    # Dados brutos das pessoas (JSON)
-├── images/                    # Cache de imagens baixadas
+├── fetch_data.py                       # Script para buscar dados do TMDB
+├── process_data.py                     # Script para processar dados
+├── seed_data_into_app.py               # Script para inserir no banco
+├── seed_all_descriptions.py            # Script unificado para gerar descrições com IA
+├── seed_funcao_tecnica_descriptions.py # Script para gerar descrições de funções técnicas
+├── seed_genero_descriptions.py         # Script para gerar descrições de gêneros
+├── movies_id.txt                       # Lista de IDs de filmes
+├── requirements.txt                    # Dependências do seeder
+├── .env                                # Variáveis de ambiente (TMDB_API_KEY, OPENAI_API_KEY)
+├── movies/                             # Dados brutos dos filmes (JSON)
+├── person/                             # Dados brutos das pessoas (JSON)
+├── images/                             # Cache de imagens baixadas
 └── output/
-    ├── movies/                # Dados processados dos filmes
+    ├── movies/                         # Dados processados dos filmes
     │   ├── *.movie.processed.json
     │   ├── generos.txt
     │   └── funcoes_tecnicas.txt
-    └── person/                # Dados processados das pessoas
+    └── person/                         # Dados processados das pessoas
         └── *.person.processed.json
 ```
 
@@ -255,9 +542,13 @@ seeder/
 - **Dados duplicados**: Os scripts verificam se dados já existem antes de inserir para evitar duplicação
 - **Idioma**: Por padrão, os dados são buscados em `pt-BR`, mas você pode alterar usando `--language`
 - **Commits automáticos**: O script de seed faz commit após cada filme para evitar transações muito grandes
+- **Descrições com IA**: A geração de descrições é opcional e funciona mesmo sem chave da OpenAI (usando fallback)
+- **Funções técnicas principais**: Use `--fetch-main-roles` para garantir importação de funções essenciais (diretor, produtor, etc.)
 
 ## Recursos Adicionais
 
 - **Documentação da API do TMDB**: [https://developers.themoviedb.org/3](https://developers.themoviedb.org/3)
 - **Explorar filmes no TMDB**: [https://www.themoviedb.org/movie](https://www.themoviedb.org/movie)
-- **Termos de Uso da API**: [https://www.themoviedb.org/terms-of-use](https://www.themoviedb.org/terms-of-use)
+- **Termos de Uso da API do TMDB**: [https://www.themoviedb.org/terms-of-use](https://www.themoviedb.org/terms-of-use)
+- **Documentação da API da OpenAI**: [https://platform.openai.com/docs](https://platform.openai.com/docs)
+- **Chaves de API da OpenAI**: [https://platform.openai.com/api-keys](https://platform.openai.com/api-keys)

@@ -1,0 +1,98 @@
+{% from 'bootstrap5/utils.html' import render_icon %}
+{% extends "_layout.jinja2" %}
+{% block content %}
+    <div class="d-flex flex-column min-vh-100 justify-content-center align-items-center p-5">
+        <div style="max-width: 1400px; width: 100%;">
+            <!-- Cabeçalho -->
+            <div class="mb-4">
+                <h4 class="fw-bold">
+                    {{ render_icon('film', size='1.5em') }} Filmes
+                </h4>
+            </div>
+
+            <!-- Mosaico de filmes -->
+            <div class="row g-4">
+                {% for item in filmes_com_stats %}
+                    <div class="col-lg-2 col-md-3 col-sm-4 col-6">
+                        <div class="card h-100 shadow-sm">
+                            <!-- Link para detalhes do filme -->
+                            <a href="{{ url_for('filme.detail_filme', filme_id=item.filme.id) }}"
+                               class="text-decoration-none">
+                                <!-- Poster do filme -->
+                                <img src="{{ url_for('filme.filme_poster', filme_id=item.filme.id) }}"
+                                     alt="Poster de {{ item.filme.titulo_portugues or item.filme.titulo_original }}"
+                                     class="card-img-top"
+                                     style="width: 100%; height: 200px; object-fit: cover;">
+
+                                <!-- Overlay com informações -->
+                                <div class="card-img-overlay d-flex flex-column justify-content-between p-2"
+                                     style="background: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0.75) 50%, rgba(0,0,0,1) 100%);">
+
+                                    <!-- Header do filme no topo -->
+                                    <div class="text-white">
+                                        {% set filme = item.filme %}
+                                        <!-- Título do filme -->
+                                        <h6 class="card-title mb-1"
+                                            style="font-size: 0.9rem; line-height: 1.2; margin-top: 0;">
+                                            {{ filme.titulo_portugues or filme.titulo_original }}
+                                            {% if filme.titulo_portugues != filme.titulo_original %}
+                                                <small class="d-block text-white-50"
+                                                       style="font-size: 0.7rem;">{{ filme.titulo_original }}</small>
+                                            {% endif %}
+                                        </h6>
+                                        <!-- Ano e duração -->
+                                        <div class="text-white-75 mb-2" style="font-size: 0.75rem;">
+                                            <strong>{{ filme.ano_lancamento }}</strong>
+                                            {% if filme.duracao_minutos %}
+                                                • {{ filme.duracao_formatada }}
+                                            {% endif %}
+                                        </div>
+                                        <!-- Gêneros -->
+                                        {% if filme.listar_nomes_generos %}
+                                            <div class="mb-2">
+                                                {% for genero in filme.listar_nomes_generos %}
+                                                    <span class="badge bg-secondary me-1"
+                                                          style="font-size: 0.6rem;">{{ genero }}</span>
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+
+                                    <!-- Estatísticas na parte inferior -->
+                                    <div class="text-white" style="font-size: 0.8rem;">
+                                        {% if item.stats.total_avaliacoes > 0 %}
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <span>
+                                                    {{ render_icon('star-fill', color='warning') }} 
+                                                    {{ "%.1f"|format(item.stats.nota_media) }}
+                                                </span>
+                                                <span class="text-white-75">
+                                                    {{ "%.0f"|format(item.stats.percentual_recomendacoes) }}% recomendam
+                                                </span>
+                                            </div>
+                                        {% else %}
+                                            <div class="text-center text-white-75">
+                                                <small>Sem avaliações</small>
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+
+            <!-- Mensagem se não houver filmes -->
+            {% if not filmes_com_stats %}
+                <div class="text-center text-muted py-5">
+                    <div class="mb-3" style="font-size: 3rem;">
+                        {{ render_icon('film') }}
+                    </div>
+                    <p class="mb-0">Nenhum filme encontrado</p>
+                    <small>Adicione alguns filmes para começar!</small>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %}

@@ -1,0 +1,25 @@
+<!-- Nome da pessoa -->
+<h2 class="card-title" style="line-height: 1.2; margin: 0 !important; padding: 0 !important;">
+    {{ pessoa.nome }}
+</h2>
+
+<!-- Informações básicas -->
+<p class="text-muted mb-3">
+    {% if pessoa.data_nascimento %}
+        <strong>{{ pessoa.data_nascimento.strftime('%d/%m/%Y') }}</strong>
+    {% endif %}
+    {% if pessoa.local_nascimento %}
+        {% if pessoa.data_nascimento %} • {% endif %}
+        {{ pessoa.local_nascimento }}
+    {% endif %}
+    {% if not pessoa.data_nascimento and not pessoa.local_nascimento %}
+        <em>Informações básicas não disponíveis</em>
+    {% endif %}
+</p>
+
+<!-- Biografia -->
+{% if pessoa.biografia %}
+    <p class="mb-3">{{ pessoa.biografia }}</p>
+{% else %}
+    <p class="text-muted mb-3"><em>Biografia não disponível.</em></p>
+{% endif %}
