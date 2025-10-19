@@ -132,10 +132,14 @@ def create_app(config_filename: str = 'config.dev.json') -> Flask:
     from .routes.auth import auth_bp
     from .routes.generos import genero_bp
     from .routes.funcoes_tecnicas import funcao_tecnica_bp
+    from .routes.pessoas import pessoa_bp
+    from .routes.filmes import filme_bp
     app.register_blueprint(auth_bp)
     app.register_blueprint(root_bp)
     app.register_blueprint(genero_bp)
     app.register_blueprint(funcao_tecnica_bp)
+    app.register_blueprint(pessoa_bp)
+    app.register_blueprint(filme_bp)
 
     app.logger.debug("Registrando modulos")
     bootstrap.init_app(app)

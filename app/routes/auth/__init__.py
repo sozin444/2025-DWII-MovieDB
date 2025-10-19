@@ -376,7 +376,7 @@ def reset_password(token):
                            form=form)
 
 
-@auth_bp.route('/foto/<uuid:user_id>')
+@auth_bp.route('/<uuid:user_id>/foto')
 @login_required
 def foto(user_id):
     """Serve a foto do usuário.
@@ -403,7 +403,7 @@ def foto(user_id):
         return ImageProcessingService.servir_imagem(placeholder_data, 'image/png')
 
 
-@auth_bp.route('/avatar/<uuid:user_id>')
+@auth_bp.route('/<uuid:user_id>/avatar')
 @login_required
 def avatar(user_id):
     """Serve o avatar do usuário.
@@ -526,6 +526,7 @@ def profile():
                            title_card="Altere seus dados",
                            form=form,
                            backup_codes_count=backup_codes_count)
+
 
 @auth_bp.route('ativar_2fa', methods=['GET', 'POST'])
 @login_required

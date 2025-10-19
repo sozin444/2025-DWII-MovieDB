@@ -82,7 +82,7 @@ class FilmeService:
         percentual_recomendacoes = (
                     total_recomendacoes / total_avaliacoes * 100) if total_avaliacoes > 0 else 0.0
 
-        # Calcula distribuição de notas (0 a 5)
+        # Calcula distribuição de notas (0 a 10)
         distribuicao_notas = {}
         if total_avaliacoes > 0:
             # Query para contar avaliações por nota
@@ -94,7 +94,7 @@ class FilmeService:
             resultado_distribuicao = session.execute(stmt_distribuicao).all()
             
             # Inicializa todas as notas com 0%
-            for nota in range(0, 6):
+            for nota in range(0, 11):
                 distribuicao_notas[nota] = 0.0
             
             # Calcula percentuais para notas que existem
@@ -105,7 +105,7 @@ class FilmeService:
                 distribuicao_notas[nota] = round(percentual, 2)
         else:
             # Se não há avaliações, todas as notas têm 0%
-            for nota in range(0, 6):
+            for nota in range(0, 11):
                 distribuicao_notas[nota] = 0.0
 
         return FilmeReviewStats(nota_media=round(nota_media, 2),
@@ -131,9 +131,9 @@ class FilmeService:
         Returns:
             list: Lista de tuplas com estrutura:
                 [
-                    ('Christian Bale', 'Batman', True),         # (nome_ator, personagem, creditado)
-                    ('Christian Bale', 'Bruce Wayne', True),
-                    ('Debbi Burns', 'Bank Patron', False),
+                    ('Christian Bale', 'Batman', True, 21040b96-4794-41a7-9253-f135743ce482),         # (nome_ator, personagem, creditado, id_ator)
+                    ('Christian Bale', 'Bruce Wayne', True, 21040b96-4794-41a7-9253-f135743ce482),
+                    ('Debbi Burns', 'Bank Patron', False, 5c3f1e2e-3f4e-4d2a-9f4b-2e5f6c7d8e9f),
                     ...
                 ]
                 Ordenada por tempo_de_tela_minutos (decrescente) + ordem alfabética do nome.
@@ -176,7 +176,10 @@ class FilmeService:
 
         # Monta a lista de tuplas (nome_ator, personagem, creditado)
         elenco = [
-            (atuacao.ator.pessoa.nome, atuacao.personagem, atuacao.creditado)
+            (atuacao.ator.pessoa.nome,
+             atuacao.personagem,
+             atuacao.creditado,
+             atuacao.ator.pessoa.id)
             for atuacao in resultado
         ]
 
@@ -202,10 +205,9 @@ class FilmeService:
         Returns:
             list: Lista de tuplas com estrutura:
                 [
-                    ('Diretor', 'Christopher Nolan', True),    # (nome_funcao, nome_pessoa,
-                    creditado)
-                    ('Produtor', 'Emma Thomas', True),
-                    ('Roteirista', 'Christopher Nolan', True),
+                    ('Diretor', 'Christopher Nolan', True, d3ebd0ba-f5e9-412f-8f4a-4c21e1cd5ff1),    # (nome_funcao, nome_pessoa, creditado, id_pessoa)
+                    ('Produtor', 'Emma Thomas', True, 7a1c2e3d-8f4b-4c5d-9e6f-1a2b3c4d5e6f),
+                    ('Roteirista', 'Christopher Nolan', True, d3ebd0ba-f5e9-412f-8f4a-4c21e1cd5ff1),
                     ...
                 ]
                 Ordenada por nome da função (alfabética).
@@ -253,9 +255,12 @@ class FilmeService:
         # Executa a query
         resultado = session.execute(stmt).scalars().all()
 
-        # Monta a lista de tuplas (nome_funcao, nome_pessoa, creditado)
+        # Monta a lista de tuplas (nome_funcao, nome_pessoa, creditado, id_pessoa)
         equipe = [
-            (equipe_membro.funcao_tecnica.nome, equipe_membro.pessoa.nome, equipe_membro.creditado)
+            (equipe_membro.funcao_tecnica.nome,
+             equipe_membro.pessoa.nome,
+             equipe_membro.creditado,
+             equipe_membro.pessoa.id)
             for equipe_membro in resultado
         ]
 

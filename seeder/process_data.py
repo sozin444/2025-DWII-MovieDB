@@ -107,8 +107,9 @@ if __name__ == "__main__":
             if "/" in member.get("character"):
                 personagens = member.get("character").split("/")
                 for p in personagens:
-                    p = p.strip()
-                    if "uncredited" in p:
+                    personagem = p.strip()
+                    if "uncredited" in personagem:
+                        personagem = personagem.replace("(uncredited)", "").strip()
                         creditado = False
                     else:
                         creditado = True
@@ -116,8 +117,12 @@ if __name__ == "__main__":
                                                  "personagem": p,
                                                  "creditado" : creditado})
             else:
-                personagem = member.get("character")
-                creditado = False if "uncredited" in personagem else True
+                personagem = member.get("character", "") or ""
+                if "uncredited" in personagem:
+                    personagem = personagem.replace("(uncredited)", "").strip()
+                    creditado = False
+                else:
+                    creditado = True
                 filme_data["elenco"].append({"nome"      : nome_do_ator,
                                              "personagem": personagem,
                                              "creditado" : creditado}

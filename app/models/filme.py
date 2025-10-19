@@ -82,7 +82,7 @@ class Filme(db.Model, BasicRepositoryMixin, AuditMixin):
             data = b64decode(str(self.poster_base64))
             mime_type = self.poster_mime
         else:
-            data = b64decode(ImageProcessingService.gerar_placeholder(200, 300))
+            data = ImageProcessingService.gerar_placeholder(200, 300)
             mime_type = 'image/png'
         return data, mime_type
 
