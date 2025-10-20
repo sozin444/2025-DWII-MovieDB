@@ -2,6 +2,9 @@
 <h2 class="card-title" style="line-height: 1.2; margin: 0 !important; padding: 0 !important;">
     {{ pessoa.nome }}
 </h2>
+{% if pessoa.ator.nome_artistico %}
+    <p class="lead "><em>{{ pessoa.ator.nome_artistico }}</em></p>
+{% endif %}
 
 <!-- Informações básicas -->
 <p class="text-muted mb-3">

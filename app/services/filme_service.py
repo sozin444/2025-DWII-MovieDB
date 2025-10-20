@@ -119,6 +119,7 @@ class FilmeService:
                      filme: Filme,
                      creditado: bool = True,
                      nao_creditado: bool = True,
+                     usar_nome_artistico: bool =True,
                      session=None) -> list:
         """Retorna lista de atores e personagens do filme.
 
@@ -126,6 +127,8 @@ class FilmeService:
             filme (Filme): Instância do filme
             creditado (bool): Se True, inclui atuações creditadas. Default: True
             nao_creditado (bool): Se True, inclui atuações não creditadas. Default: True
+            usar_nome_artistico (bool): Se True, usa o nome artístico do ator se disponível.
+                                        Caso contrário, usa o nome real. Default: True
             session: Sessão SQLAlchemy opcional. Se None, usa a sessão padrão da classe.
 
         Returns:
@@ -145,10 +148,10 @@ class FilmeService:
 
         Examples:
             >>> # Apenas elenco creditado
-            >>> FilmeService.obter_elenco(filme, nao_creditado=False)
+            >>> FilmeService.obter_elenco(filme,nao_creditado=False)
 
             >>> # Apenas elenco não creditado
-            >>> FilmeService.obter_elenco(filme, creditado=False)
+            >>> FilmeService.obter_elenco(filme,creditado=False)
 
             >>> # Elenco completo
             >>> FilmeService.obter_elenco(filme)
@@ -176,7 +179,7 @@ class FilmeService:
 
         # Monta a lista de tuplas (nome_ator, personagem, creditado)
         elenco = [
-            (atuacao.ator.pessoa.nome,
+            (atuacao.ator.nome_artistico if usar_nome_artistico and atuacao.ator.nome_artistico else atuacao.ator.pessoa.nome,
              atuacao.personagem,
              atuacao.creditado,
              atuacao.ator.pessoa.id)

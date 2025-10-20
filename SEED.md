@@ -328,7 +328,104 @@ python seed_genero_descriptions.py
 - **Commit incremental:** Salva progresso a cada item processado
 - **Tratamento de erros:** Continua processando mesmo se alguns itens falharem
 
-## 6. Verificar Dados no Banco
+## 6. Adicionar Biografias de Pessoas com IA (Opcional)
+
+Após popular o banco de dados, você pode adicionar biografias detalhadas para atores usando Perplexity AI.
+
+### Configurar Chave da Perplexity AI (Opcional)
+
+Para gerar biografias usando IA, configure a chave da API da Perplexity:
+
+1. **Obter chave da API:**
+   - Acesse [https://www.perplexity.ai/settings/api](https://www.perplexity.ai/settings/api)
+   - Crie uma nova chave de API
+
+2. **Configurar a chave:**
+
+   **Windows (PowerShell):**
+   ```powershell
+   $Env:PERPLEXITY_API_KEY="sua_chave_aqui"
+   ```
+
+   **Windows (CMD):**
+   ```cmd
+   set PERPLEXITY_API_KEY=sua_chave_aqui
+   ```
+
+   **Linux/macOS:**
+   ```bash
+   export PERPLEXITY_API_KEY="sua_chave_aqui"
+   ```
+
+   **Alternativa (arquivo .env):**
+
+   Edite o arquivo `seeder/.env` e adicione:
+   ```
+   PERPLEXITY_API_KEY=sua_chave_aqui
+   ```
+
+**Nota:** Se não configurar a chave da Perplexity, o script usará biografias de fallback básicas.
+
+### Instalar Dependência da Perplexity
+
+```bash
+pip install perplexityai
+```
+
+### Executar Script de Biografias
+
+Navegue até o diretório `seeder` e execute:
+
+```bash
+cd seeder
+python seed_biografias.py
+```
+
+### Como Funciona
+
+#### Para Pessoas (apenas Atores)
+- **Prompt:** "Construa uma biografia de até 2000 caracteres sobre o ator {nome_pessoa}, incluindo detalhes sobre sua carreira, prêmios e vida pessoal. Utilize uma linguagem simples e direta, evitando adjetivos e focando em fatos. Produza um texto limpo, sem referências e em português brasileiro."
+- **Fallback:** "{Nome} é um profissional da indústria cinematográfica."
+
+**Exemplo de biografia gerada:**
+> "Tom Hanks é um ator e cineasta americano nascido em 1956. Ganhou dois Oscars consecutivos de Melhor Ator por Filadélfia (1993) e Forrest Gump (1994). É conhecido por papéis em O Resgate do Soldado Ryan, Náufrago e a série Toy Story..."
+
+### Saída Esperada
+
+```
+================================================================================
+SEED DE DESCRIÇÕES - GÊNEROS CINEMATOGRÁFICOS
+================================================================================
+
+📝 Encontradas 15 sem biografia:
+  • Tom Hanks
+  • Morgan Freeman
+  • Brad Pitt
+  ...
+
+[1/15] Processando: Tom Hanks
+  ✓ Biografia coletada: Tom Hanks é um ator e cineasta americano nascido em 1956. Ganhou dois Oscars consecutivos...
+[2/15] Processando: Morgan Freeman
+  ✓ Biografia coletada: Morgan Freeman é um ator americano nascido em 1937, conhecido por sua voz distintiva...
+
+================================================================================
+✅ SEED DE BIOGRAFIAS CONCLUÍDO!
+================================================================================
+Resumo:
+  • 13 biografias coletadas com IA
+  • 2 biografias de fallback
+  • 15 pessoas processadas
+```
+
+### Recursos
+- **Processamento inteligente:** Só processa pessoas sem biografia
+- **Limite de caracteres:** Biografias são limitadas a 2000 caracteres
+- **Fallback automático:** Funciona mesmo sem Perplexity API key
+- **Rate limiting:** Pausa de 1 segundo entre chamadas para respeitar limites da API
+- **Commit incremental:** Salva progresso a cada pessoa processada
+- **Tratamento de erros:** Continua processando mesmo se algumas biografias falharem
+
+## 7. Verificar Dados no Banco
 
 Após o seed, você pode verificar se os dados foram inseridos corretamente:
 
@@ -351,7 +448,7 @@ for p in pessoas:
     print(p.nome)
 ```
 
-## 7. Exemplo de Fluxo Completo de Seeding
+## 8. Exemplo de Fluxo Completo de Seeding
 
 Este exemplo demonstra o processo completo de seeding, do início ao fim, incluindo geração de descrições com IA.
 
@@ -362,7 +459,8 @@ Este exemplo demonstra o processo completo de seeding, do início ao fim, inclui
 ```powershell
 # Windows PowerShell
 $Env:TMDB_API_KEY="sua_chave_tmdb_aqui"
-$Env:OPENAI_API_KEY="sua_chave_openai_aqui"  # Opcional
+$Env:OPENAI_API_KEY="sua_chave_openai_aqui"        # Opcional (descrições)
+$Env:PERPLEXITY_API_KEY="sua_chave_perplexity_aqui" # Opcional (biografias)
 ```
 
 **2. Preparar lista de filmes:**
@@ -412,6 +510,13 @@ cd seeder
 python seed_all_descriptions.py
 ```
 
+**8. Gerar biografias com IA (opcional):**
+
+```bash
+python seed_biografias.py
+cd ..
+```
+
 ### Fluxo Completo em Um Único Bloco
 
 Para conveniência, aqui está toda a sequência de comandos:
@@ -419,13 +524,15 @@ Para conveniência, aqui está toda a sequência de comandos:
 ```powershell
 # 1. Configurar variáveis de ambiente (Windows PowerShell)
 $Env:TMDB_API_KEY="sua_chave_tmdb_aqui"
-$Env:OPENAI_API_KEY="sua_chave_openai_aqui"
+$Env:OPENAI_API_KEY="sua_chave_openai_aqui"              # Opcional
+$Env:PERPLEXITY_API_KEY="sua_chave_perplexity_aqui"      # Opcional
 
 # 2. Navegar para o diretório seeder
 cd seeder
 
 # 3. Instalar dependências (apenas na primeira vez)
 pip install -r requirements.txt
+pip install perplexityai  # Opcional, para biografias
 
 # 4. Buscar dados do TMDB
 python fetch_data.py --fetch-persons --fetch-main-roles --max-people 15 --language pt-BR
@@ -437,11 +544,14 @@ python process_data.py
 cd ..
 python -m seeder.seed_data_into_app
 
-# 7. Gerar descrições com IA
+# 7. Gerar descrições com IA (opcional)
 cd seeder
 python seed_all_descriptions.py
 
-# 8. Voltar para raiz
+# 8. Gerar biografias com IA (opcional)
+python seed_biografias.py
+
+# 9. Voltar para raiz
 cd ..
 ```
 
@@ -450,13 +560,15 @@ cd ..
 ```bash
 # 1. Configurar variáveis de ambiente
 export TMDB_API_KEY="sua_chave_tmdb_aqui"
-export OPENAI_API_KEY="sua_chave_openai_aqui"
+export OPENAI_API_KEY="sua_chave_openai_aqui"              # Opcional
+export PERPLEXITY_API_KEY="sua_chave_perplexity_aqui"      # Opcional
 
 # 2. Navegar para o diretório seeder
 cd seeder
 
 # 3. Instalar dependências (apenas na primeira vez)
 pip install -r requirements.txt
+pip install perplexityai  # Opcional, para biografias
 
 # 4. Buscar dados do TMDB
 python fetch_data.py --fetch-persons --fetch-main-roles --max-people 15 --language pt-BR
@@ -468,11 +580,14 @@ python process_data.py
 cd ..
 python -m seeder.seed_data_into_app
 
-# 7. Gerar descrições com IA
+# 7. Gerar descrições com IA (opcional)
 cd seeder
 python seed_all_descriptions.py
 
-# 8. Voltar para raiz
+# 8. Gerar biografias com IA (opcional)
+python seed_biografias.py
+
+# 9. Voltar para raiz
 cd ..
 ```
 
@@ -520,9 +635,10 @@ seeder/
 ├── seed_all_descriptions.py            # Script unificado para gerar descrições com IA
 ├── seed_funcao_tecnica_descriptions.py # Script para gerar descrições de funções técnicas
 ├── seed_genero_descriptions.py         # Script para gerar descrições de gêneros
+├── seed_biografias.py                  # Script para gerar biografias de pessoas com IA
 ├── movies_id.txt                       # Lista de IDs de filmes
 ├── requirements.txt                    # Dependências do seeder
-├── .env                                # Variáveis de ambiente (TMDB_API_KEY, OPENAI_API_KEY)
+├── .env                                # Variáveis de ambiente (TMDB_API_KEY, OPENAI_API_KEY, PERPLEXITY_API_KEY)
 ├── movies/                             # Dados brutos dos filmes (JSON)
 ├── person/                             # Dados brutos das pessoas (JSON)
 ├── images/                             # Cache de imagens baixadas
@@ -552,3 +668,5 @@ seeder/
 - **Termos de Uso da API do TMDB**: [https://www.themoviedb.org/terms-of-use](https://www.themoviedb.org/terms-of-use)
 - **Documentação da API da OpenAI**: [https://platform.openai.com/docs](https://platform.openai.com/docs)
 - **Chaves de API da OpenAI**: [https://platform.openai.com/api-keys](https://platform.openai.com/api-keys)
+- **Documentação da API da Perplexity**: [https://docs.perplexity.ai](https://docs.perplexity.ai)
+- **Chaves de API da Perplexity**: [https://www.perplexity.ai/settings/api](https://www.perplexity.ai/settings/api)
