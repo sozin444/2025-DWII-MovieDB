@@ -165,8 +165,9 @@ if __name__ == "__main__":
 
         pessoa_info = {
             "nome": person_data.get("name", "N/A"),
-            "data_nascimento": person_data.get("birthday", "N/A"),
-            "local_nascimento": person_data.get("place_of_birth", "N/A"),
+            "data_nascimento": person_data.get("birthday", None),
+            "data_falecimento": person_data.get("deathday", None),
+            "local_nascimento": person_data.get("place_of_birth", None),
             "biografia": person_data.get("biography", ""),
             "foto_path": person_data.get("profile_path", ""),
             "com_foto": bool(person_data.get("profile_path", "")),

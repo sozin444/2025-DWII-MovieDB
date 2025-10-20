@@ -21,6 +21,7 @@ class Pessoa(db.Model, BasicRepositoryMixin, AuditMixin):
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     nome: Mapped[str] = mapped_column(String(100))
     data_nascimento: Mapped[Optional[datetime]] = mapped_column(Date, default=None)
+    data_falecimento: Mapped[Optional[datetime]] = mapped_column(Date, default=None)
     local_nascimento: Mapped[Optional[str]] = mapped_column(String(100))
     biografia: Mapped[Optional[str]] = mapped_column(Text)
     foto_base64: Mapped[Optional[str]] = mapped_column(Text)
@@ -91,10 +92,18 @@ class Pessoa(db.Model, BasicRepositoryMixin, AuditMixin):
 
     @property
     def idade(self):
-        return None if not self.data_nascimento else (
-            datetime.now().year - self.data_nascimento.year -
-            ((datetime.now().month, datetime.now().day) <
-             (self.data_nascimento.month, self.data_nascimento.day))
+        """Calcula a idade em anos completos com base em `data_nascimento`.
+
+        Retorna None se `data_nascimento` não estiver definida.
+        Se `data_falecimento` estiver definida, calcula a idade na data de falecimento,
+        caso contrário utiliza a data atual.
+        """
+        if not self.data_nascimento:
+            return None
+        ref = self.data_falecimento or datetime.now()
+        return (
+            ref.year - self.data_nascimento.year -
+            ((ref.month, ref.day) < (self.data_nascimento.month, self.data_nascimento.day))
         )
 
     def _clear_foto_fields(self):

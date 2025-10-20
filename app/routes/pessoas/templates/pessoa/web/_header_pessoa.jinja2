@@ -9,12 +9,13 @@
 <!-- Informações básicas -->
 <p class="text-muted mb-3">
     {% if pessoa.data_nascimento %}
-        <strong>{{ pessoa.data_nascimento.strftime('%d/%m/%Y') }}</strong> ({{ pessoa.idade }} anos)
+        <strong>{{ pessoa.data_nascimento.strftime('%d/%m/%Y') }}</strong>
+        {% if pessoa.idade %}({{ pessoa.idade }} anos){% endif %}
+        {% if pessoa.data_falecimento %}
+            - <strong>{{ pessoa.data_falecimento.strftime('%d/%m/%Y') }}</strong>
+        {% endif %}
     {% endif %}
-    {% if pessoa.local_nascimento %}
-        {% if pessoa.data_nascimento %} • {% endif %}
-        {{ pessoa.local_nascimento }}
-    {% endif %}
+    {% if pessoa.local_nascimento %}<br>{{ pessoa.local_nascimento }}{% endif %}
     {% if not pessoa.data_nascimento and not pessoa.local_nascimento %}
         <em>Informações básicas não disponíveis</em>
     {% endif %}

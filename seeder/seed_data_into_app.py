@@ -182,10 +182,14 @@ def criar_pessoas(source_path: Path, fetch_image: bool=False) -> Optional[dict[s
                 nascimento = datetime.strptime(data["data_nascimento"], "%Y-%m-%d")\
                     if data["data_nascimento"] else None
 
+                morte = datetime.strptime(data["data_falecimento"], "%Y-%m-%d") \
+                    if data["data_falecimento"] else None
+
                 # Criar pessoa primeiro (sempre)
                 pessoa = Pessoa(
                         nome=data["nome"],
                         data_nascimento=nascimento,
+                        data_falecimento=morte,
                         local_nascimento=data["local_nascimento"],
                         biografia=data["biografia"]
                 )
