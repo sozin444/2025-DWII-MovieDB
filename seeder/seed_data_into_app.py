@@ -11,6 +11,10 @@ import requests
 from flask import current_app
 from flask_migrate import current
 
+# Adicionar o diretório raiz do projeto ao Python path
+project_root = Path(__file__).parent.parent
+sys.path.insert(0, str(project_root))
+
 from app import create_app
 from app.infra.modulos import db
 from app.models.filme import Filme, Genero, FuncaoTecnica
@@ -101,12 +105,25 @@ class TMDBImageFetcher:
 
 
 def criar_generos(source_file: Path) -> Optional[dict[str, Genero]]:
-    """Criar gêneros a partir de um arquivo de texto"""
+    """Criar gêneros a partir de um arquivo de texto.
+
+    Se existir um arquivo generos_completo.json no mesmo diretório,
+    usa os dados completos incluindo descrições.
+    """
     if not source_file.exists():
         current_app.logger.warning(f"Arquivo de generos não encontrado: {source_file}")
 
     generos = dict()
     print("📝 Criando gêneros...")
+
+    # Verificar se existe arquivo completo com descrições
+    json_file = source_file.parent / "generos_completo.json"
+    generos_completos = {}
+    if json_file.exists():
+        print(f"  📄 Usando dados completos de {json_file.name}")
+        with json_file.open("r", encoding="utf-8") as f:
+            generos_list = json.load(f)
+            generos_completos = {g["nome"]: g for g in generos_list}
 
     with source_file.open("r", encoding="utf-8") as f:
         for line in f:
@@ -115,7 +132,16 @@ def criar_generos(source_file: Path) -> Optional[dict[str, Genero]]:
                 continue
             genero = Genero.get_first_or_none_by("nome", line)
             if not genero:
-                genero = Genero(nome=line, ativo=True)
+                # Usar dados completos se disponível
+                if line in generos_completos:
+                    genero_data = generos_completos[line]
+                    genero = Genero(
+                        nome=line,
+                        descricao=genero_data.get("descricao"),
+                        ativo=genero_data.get("ativo", True)
+                    )
+                else:
+                    genero = Genero(nome=line, ativo=True)
                 db.session.add(genero)
                 print(f"  ✓ {line}")
             else:
@@ -127,12 +153,26 @@ def criar_generos(source_file: Path) -> Optional[dict[str, Genero]]:
 
 
 def criar_funcoes_tecnicas(source_file: Path) -> Optional[dict[str, FuncaoTecnica]]:
-    """Criar funções técnicas a partir de um arquivo de texto"""
+    """Criar funções técnicas a partir de um arquivo de texto.
+
+    Se existir um arquivo funcoes_tecnicas_completo.json no mesmo diretório,
+    usa os dados completos incluindo descrições.
+    """
     if not source_file.exists():
         current_app.logger.warning(f"Arquivo de funções técnicas não encontrado: {source_file}")
 
     funcoes = dict()
     print("\n📝 Criando funções técnicas...")
+
+    # Verificar se existe arquivo completo com descrições
+    json_file = source_file.parent / "funcoes_tecnicas_completo.json"
+    funcoes_completas = {}
+    if json_file.exists():
+        print(f"  📄 Usando dados completos de {json_file.name}")
+        with json_file.open("r", encoding="utf-8") as f:
+            funcoes_list = json.load(f)
+            funcoes_completas = {f["nome"]: f for f in funcoes_list}
+
     with source_file.open("r", encoding="utf-8") as f:
         for line in f:
             line = line.split("#", 1)[0].strip()
@@ -140,7 +180,16 @@ def criar_funcoes_tecnicas(source_file: Path) -> Optional[dict[str, FuncaoTecnic
                 continue
             funcao = FuncaoTecnica.get_first_or_none_by("nome", line)
             if not funcao:
-                funcao = FuncaoTecnica(nome=line, ativo=True)
+                # Usar dados completos se disponível
+                if line in funcoes_completas:
+                    funcao_data = funcoes_completas[line]
+                    funcao = FuncaoTecnica(
+                        nome=line,
+                        descricao=funcao_data.get("descricao"),
+                        ativo=funcao_data.get("ativo", True)
+                    )
+                else:
+                    funcao = FuncaoTecnica(nome=line, ativo=True)
                 db.session.add(funcao)
                 print(f"  ✓ {line}")
             else:
@@ -193,8 +242,14 @@ def criar_pessoas(source_path: Path, fetch_image: bool=False) -> Optional[dict[s
                         local_nascimento=data["local_nascimento"],
                         biografia=data["biografia"]
                 )
-                # Baixar foto se necessário
-                if fetch_image and data.get("foto_path"):
+                # Verificar se tem foto em base64 (de dump do banco)
+                if data.get("foto_base64") and data.get("foto_mime"):
+                    pessoa.foto_mime = data["foto_mime"]
+                    pessoa.foto_base64 = data["foto_base64"]
+                    pessoa.com_foto = True
+                    print(f"    ✓ Foto carregada do dump para {data['nome']}")
+                # Caso contrário, baixar foto se necessário
+                elif fetch_image and data.get("foto_path"):
                     mime_type, image_base64 = TMDBImageFetcher.\
                         download_and_cache_image_as_base64(data.get("foto_path"))
                     if mime_type and image_base64:
@@ -311,8 +366,14 @@ def criar_filmes(source_path: Path,
                     )
                     db.session.add(atuacao)
 
-                # Baixar foto se necessário
-                if fetch_image and d.get("poster_path"):
+                # Verificar se tem poster em base64 (de dump do banco)
+                if d.get("poster_base64") and d.get("poster_mime"):
+                    filme.poster_mime = d["poster_mime"]
+                    filme.poster_base64 = d["poster_base64"]
+                    filme.com_poster = True
+                    print(f"    ✓ Poster carregado do dump para {d['titulo_original']}")
+                # Caso contrário, baixar poster se necessário
+                elif fetch_image and d.get("poster_path"):
                     mime_type, image_base64 = TMDBImageFetcher. \
                         download_and_cache_image_as_base64(d.get("poster_path"))
                     if mime_type and image_base64:

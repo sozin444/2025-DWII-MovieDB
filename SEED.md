@@ -38,16 +38,19 @@ Este documento descreve o processo completo para popular o banco de dados do myM
 Defina a variável de ambiente `TMDB_API_KEY` com sua chave:
 
 **Windows (PowerShell):**
+
 ```powershell
 $Env:TMDB_API_KEY="sua_chave_aqui"
 ```
 
 **Windows (CMD):**
+
 ```cmd
 set TMDB_API_KEY=sua_chave_aqui
 ```
 
 **Linux/macOS:**
+
 ```bash
 export TMDB_API_KEY="sua_chave_aqui"
 ```
@@ -55,6 +58,7 @@ export TMDB_API_KEY="sua_chave_aqui"
 **Alternativa (arquivo .env):**
 
 Crie um arquivo `.env` na raiz do projeto com:
+
 ```
 TMDB_API_KEY=sua_chave_aqui
 ```
@@ -64,6 +68,7 @@ TMDB_API_KEY=sua_chave_aqui
 Edite o arquivo `seeder/movies_id.txt` e adicione os IDs dos filmes que deseja importar, um por linha.
 
 **Exemplo:**
+
 ```
 550        # Fight Club
 680        # Pulp Fiction
@@ -73,6 +78,7 @@ Edite o arquivo `seeder/movies_id.txt` e adicione os IDs dos filmes que deseja i
 ```
 
 **Como encontrar IDs de filmes:**
+
 1. Acesse [https://www.themoviedb.org/](https://www.themoviedb.org/)
 2. Busque pelo filme desejado
 3. O ID estará na URL. Exemplo: `https://www.themoviedb.org/movie/550` → ID = 550
@@ -97,6 +103,7 @@ python fetch_data.py --fetch-persons --language pt-BR
 ```
 
 **Opções disponíveis:**
+
 - `--fetch-persons`: Busca também os detalhes das pessoas (elenco e equipe técnica)
 - `--fetch-main-roles`: Garante que as funções técnicas básicas serão importadas (Director, Editor, Producer, etc.)
 - `--max-people N`: Limita o número de pessoas a buscar (0 = sem limite)
@@ -104,11 +111,13 @@ python fetch_data.py --fetch-persons --language pt-BR
 - `--movies-file FILE`: Especifica o arquivo com IDs dos filmes (padrão: movies_id.txt)
 
 **Exemplo com limite de pessoas:**
+
 ```bash
 python fetch_data.py --fetch-persons --max-people 10 --language pt-BR
 ```
 
 **Exemplo garantindo funções técnicas principais:**
+
 ```bash
 python fetch_data.py --fetch-persons --fetch-main-roles --max-people 5 --language pt-BR
 ```
@@ -116,6 +125,7 @@ python fetch_data.py --fetch-persons --fetch-main-roles --max-people 5 --languag
 **Nota:** As funções técnicas básicas são: Director, Editor, Executive Producer, Novel, Producer, Screenplay, Special Effects, Writer.
 
 **Saída esperada:**
+
 - Arquivos JSON em `seeder/movies/` com dados dos filmes e créditos
 - Arquivos JSON em `seeder/person/` com dados das pessoas
 
@@ -128,9 +138,11 @@ python process_data.py
 ```
 
 **Opções disponíveis:**
+
 - `--movies-file FILE`: Especifica o arquivo com IDs dos filmes (padrão: movies_id.txt)
 
 **O que este script faz:**
+
 - Extrai e normaliza informações dos filmes
 - Extrai e normaliza informações das pessoas
 - Cria listas de gêneros únicos
@@ -138,6 +150,7 @@ python process_data.py
 - Processa relacionamentos (elenco e equipe técnica)
 
 **Saída esperada:**
+
 - Arquivos processados em `seeder/output/movies/` (filmes, gêneros, funções)
 - Arquivos processados em `seeder/output/person/` (pessoas)
 - Arquivos de texto: `generos.txt` e `funcoes_tecnicas.txt`
@@ -152,6 +165,7 @@ python -m seeder.seed_data_into_app
 ```
 
 **O que este script faz:**
+
 - Cria gêneros no banco de dados
 - Cria funções técnicas no banco de dados
 - Cria registros de pessoas (com fotos, se disponíveis)
@@ -159,6 +173,7 @@ python -m seeder.seed_data_into_app
 - Estabelece relacionamentos entre filmes, pessoas e funções
 
 **Saída esperada:**
+
 ```
 ================================================================================
 SEED DE DADOS - MYMOVIEDB
@@ -204,22 +219,26 @@ Após popular o banco de dados, você pode adicionar descrições detalhadas par
 Para gerar descrições de alta qualidade usando IA, configure a chave da API da OpenAI:
 
 1. **Obter chave da API:**
+
    - Acesse [https://platform.openai.com/api-keys](https://platform.openai.com/api-keys)
    - Crie uma nova chave de API
 
 2. **Configurar a chave:**
 
    **Windows (PowerShell):**
+
    ```powershell
    $Env:OPENAI_API_KEY="sua_chave_aqui"
    ```
 
    **Windows (CMD):**
+
    ```cmd
    set OPENAI_API_KEY=sua_chave_aqui
    ```
 
    **Linux/macOS:**
+
    ```bash
    export OPENAI_API_KEY="sua_chave_aqui"
    ```
@@ -227,6 +246,7 @@ Para gerar descrições de alta qualidade usando IA, configure a chave da API da
    **Alternativa (arquivo .env):**
 
    Edite o arquivo `seeder/.env` e adicione:
+
    ```
    OPENAI_API_KEY=sua_chave_aqui
    ```
@@ -264,17 +284,21 @@ python seed_all_descriptions.py --funcoes --force
 ### Como Funciona
 
 #### Para Funções Técnicas
+
 - **Prompt:** "Na indústria cinematográfica, o que faz um {nome_da_funcao}? Responda em menos de 1000 caracteres em português brasileiro."
 - **Fallback:** "Profissional responsável pela função de {nome} na produção cinematográfica."
 
 **Exemplo de descrição gerada:**
+
 > "O diretor é responsável pela visão criativa geral do filme, coordenando todos os aspectos artísticos e técnicos da produção..."
 
 #### Para Gêneros Cinematográficos
+
 - **Prompt:** "Descreva as principais características do gênero cinematográfico {nome_do_genero}, e liste três filmes clássicos desse gênero. Responda em menos de 1000 caracteres em português brasileiro."
 - **Fallback:** "Gênero cinematográfico {nome} com características e elementos específicos que o distinguem de outros gêneros."
 
 **Exemplo de descrição gerada:**
+
 > "O gênero de ação caracteriza-se por sequências dinâmicas, perseguições, lutas e explosões. Filmes clássicos: Die Hard (1988), Mad Max: Fury Road (2015), Terminator 2 (1991)."
 
 ### Saída Esperada
@@ -320,6 +344,7 @@ python seed_genero_descriptions.py
 ```
 
 ### Recursos
+
 - **Processamento inteligente:** Por padrão, só processa itens sem descrição
 - **Modo força:** Atualiza todas as descrições, mesmo as existentes
 - **Processamento seletivo:** Pode processar apenas funções ou apenas gêneros
@@ -337,22 +362,26 @@ Após popular o banco de dados, você pode adicionar biografias detalhadas para 
 Para gerar biografias usando IA, configure a chave da API da Perplexity:
 
 1. **Obter chave da API:**
+
    - Acesse [https://www.perplexity.ai/settings/api](https://www.perplexity.ai/settings/api)
    - Crie uma nova chave de API
 
 2. **Configurar a chave:**
 
    **Windows (PowerShell):**
+
    ```powershell
    $Env:PERPLEXITY_API_KEY="sua_chave_aqui"
    ```
 
    **Windows (CMD):**
+
    ```cmd
    set PERPLEXITY_API_KEY=sua_chave_aqui
    ```
 
    **Linux/macOS:**
+
    ```bash
    export PERPLEXITY_API_KEY="sua_chave_aqui"
    ```
@@ -360,6 +389,7 @@ Para gerar biografias usando IA, configure a chave da API da Perplexity:
    **Alternativa (arquivo .env):**
 
    Edite o arquivo `seeder/.env` e adicione:
+
    ```
    PERPLEXITY_API_KEY=sua_chave_aqui
    ```
@@ -384,10 +414,12 @@ python seed_biografias.py
 ### Como Funciona
 
 #### Para Pessoas (apenas Atores)
+
 - **Prompt:** "Construa uma biografia de até 2000 caracteres sobre o ator {nome_pessoa}, incluindo detalhes sobre sua carreira, prêmios e vida pessoal. Utilize uma linguagem simples e direta, evitando adjetivos e focando em fatos. Produza um texto limpo, sem referências e em português brasileiro."
 - **Fallback:** "{Nome} é um profissional da indústria cinematográfica."
 
 **Exemplo de biografia gerada:**
+
 > "Tom Hanks é um ator e cineasta americano nascido em 1956. Ganhou dois Oscars consecutivos de Melhor Ator por Filadélfia (1993) e Forrest Gump (1994). É conhecido por papéis em O Resgate do Soldado Ryan, Náufrago e a série Toy Story..."
 
 ### Saída Esperada
@@ -418,6 +450,7 @@ Resumo:
 ```
 
 ### Recursos
+
 - **Processamento inteligente:** Só processa pessoas sem biografia
 - **Limite de caracteres:** Biografias são limitadas a 2000 caracteres
 - **Fallback automático:** Funciona mesmo sem Perplexity API key
@@ -466,6 +499,7 @@ $Env:PERPLEXITY_API_KEY="sua_chave_perplexity_aqui" # Opcional (biografias)
 **2. Preparar lista de filmes:**
 
 Edite `seeder/movies_id.txt` e adicione os IDs dos filmes desejados:
+
 ```
 550        # Fight Club
 680        # Pulp Fiction
@@ -660,6 +694,234 @@ seeder/
 - **Commits automáticos**: O script de seed faz commit após cada filme para evitar transações muito grandes
 - **Descrições com IA**: A geração de descrições é opcional e funciona mesmo sem chave da OpenAI (usando fallback)
 - **Funções técnicas principais**: Use `--fetch-main-roles` para garantir importação de funções essenciais (diretor, produtor, etc.)
+
+## 9. Exportar Dados do Banco (Dump) ⭐ NOVO
+
+Você pode exportar todos os dados do banco de dados para arquivos JSON estruturados. Este recurso é útil para backup, migração entre ambientes ou reset do banco de dados.
+
+### Executar Dump do Banco
+
+```bash
+python -m seeder.dump_database
+```
+
+### O que o Dump Exporta
+
+O script `dump_database.py` exporta **todos** os dados do banco de dados:
+
+- **Gêneros**: Lista simples e versão completa com descrições
+- **Funções Técnicas**: Lista simples e versão completa com descrições
+- **Pessoas**: Dados completos incluindo fotos em base64
+- **Filmes**: Dados completos incluindo pôsteres em base64
+
+### Arquivos Gerados
+
+```
+seeder/output/
+├── movies/
+│   ├── generos.txt                        # Lista simples de gêneros
+│   ├── generos_completo.json              # Gêneros com descrições
+│   ├── funcoes_tecnicas.txt               # Lista simples de funções
+│   ├── funcoes_tecnicas_completo.json     # Funções com descrições
+│   └── *.movie.processed.json             # Filmes com pôsteres em base64
+└── person/
+    └── *.person.processed.json            # Pessoas com fotos em base64
+```
+
+### Características do Dump
+
+- **Imagens em Base64**: Todas as imagens são exportadas em formato base64, garantindo portabilidade completa
+- **Descrições Completas**: Inclui descrições de gêneros e funções técnicas se existirem
+- **Formato Compatível**: Os arquivos gerados são compatíveis com `seed_data_into_app.py`
+- **Backup Completo**: Exporta todos os dados sem exceção
+
+### Saída Esperada
+
+```
+================================================================================
+DUMP DO BANCO DE DADOS - MYMOVIEDB
+================================================================================
+
+📝 Exportando gêneros...
+  ✓ 15 gêneros exportados
+  ✓ Arquivo: seeder/output/movies/generos.txt
+  ✓ Arquivo: seeder/output/movies/generos_completo.json
+
+📝 Exportando funções técnicas...
+  ✓ 8 funções técnicas exportadas
+  ✓ Arquivo: seeder/output/movies/funcoes_tecnicas.txt
+  ✓ Arquivo: seeder/output/movies/funcoes_tecnicas_completo.json
+
+📝 Exportando pessoas...
+  ✓ 45 pessoas exportadas
+  ✓ Diretório: seeder/output/person/
+
+📝 Exportando filmes...
+  ✓ 10 filmes exportados
+  ✓ Diretório: seeder/output/movies/
+
+================================================================================
+✅ DUMP CONCLUÍDO COM SUCESSO!
+================================================================================
+
+Resumo:
+  • 15 gêneros
+  • 8 funções técnicas
+  • 45 pessoas
+  • 10 filmes
+  • Todas as imagens incluídas em base64
+```
+
+## 10. Fluxos de Trabalho Alternativos
+
+### Fluxo 1: Importar da API TMDB (Primeira Vez)
+
+Este é o fluxo padrão descrito nas seções anteriores:
+
+```bash
+# 1. Buscar dados da API
+cd seeder
+python fetch_data.py --fetch-persons --fetch-main-roles --language pt-BR
+
+# 2. Processar dados brutos
+python process_data.py
+
+# 3. Importar para o banco
+cd ..
+python -m seeder.seed_data_into_app
+
+# 4. Gerar descrições (opcional)
+cd seeder
+python seed_all_descriptions.py
+
+# 5. Gerar biografias (opcional)
+python seed_biografias.py
+```
+
+### Fluxo 2: Backup e Restore
+
+Use este fluxo para fazer backup dos dados ou migrar entre ambientes:
+
+```bash
+# BACKUP: Exportar dados do banco atual
+python -m seeder.dump_database
+
+# Os arquivos são salvos em seeder/output/
+# Você pode versionar estes arquivos ou movê-los para backup
+
+# RESTORE: Importar dados do dump
+# (Certifique-se de que o banco está vazio ou os dados serão mesclados)
+python -m seeder.seed_data_into_app
+```
+
+### Fluxo 3: Migração entre Ambientes
+
+```bash
+# No ambiente ORIGEM (ex: desenvolvimento):
+python -m seeder.dump_database
+
+# Copiar pasta seeder/output/ para o ambiente destino
+# (via git, rsync, zip, etc.)
+
+# No ambiente DESTINO (ex: produção):
+python -m seeder.seed_data_into_app
+```
+
+### Fluxo 4: Reset Completo do Banco
+
+```bash
+# 1. Fazer backup dos dados atuais (opcional)
+python -m seeder.dump_database
+
+# 2. Limpar banco de dados
+# (delete o arquivo SQLite ou execute DROP TABLES)
+
+# 3. Aplicar migrations
+flask db upgrade
+
+# 4. Restaurar dados do backup
+python -m seeder.seed_data_into_app
+```
+
+## 11. Estrutura de Arquivos JSON (Dump)
+
+### Pessoa (person.processed.json)
+
+```json
+{
+  "nome": "Tom Hanks",
+  "data_nascimento": "1956-07-09",
+  "data_falecimento": null,
+  "local_nascimento": "Concord, California, USA",
+  "biografia": "Tom Hanks é um ator e cineasta americano...",
+  "foto_path": null,
+  "com_foto": true,
+  "foto_base64": "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/2wBDAQcHBwoIChMKChMoGhYaKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCgoKCj/wAARCAAoACgDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD3+iiigAooooAKKKKACiiigD//2Q==",
+  "foto_mime": "image/jpeg",
+  "nome_artistico": null
+}
+```
+
+### Filme (movie.processed.json)
+
+```json
+{
+  "titulo_original": "Forrest Gump",
+  "titulo_portugues": "Forrest Gump: O Contador de Histórias",
+  "ano_lancamento": 1994,
+  "lancado": true,
+  "duracao_minutos": 142,
+  "sinopse": "A história de Forrest Gump...",
+  "orcamento_milhares": 55000.0,
+  "faturamento_lancamento_milhares": 677387.0,
+  "poster_path": null,
+  "com_poster": true,
+  "poster_base64": "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBQYFBAYGBQYHBwYIChAKCgkJChQODwwQFxQYGBcUFhYaHSUfGhsjHBYWICwgIyYnKSopGR8tMC0oMCUoKSj/...",
+  "poster_mime": "image/jpeg",
+  "trailer_youtube": "https://www.youtube.com/watch?v=bLvqoHBptjg",
+  "generos_do_filme": ["Drama", "Romance"],
+  "elenco": [
+    {
+      "nome": "Tom Hanks",
+      "personagem": "Forrest Gump",
+      "creditado": true,
+      "protagonista": true,
+      "tempo_de_tela_minutos": 120
+    }
+  ],
+  "equipe_tecnica": [
+    {
+      "nome": "Robert Zemeckis",
+      "funcao": "Director",
+      "creditado": true
+    }
+  ]
+}
+```
+
+### Gêneros Completo (generos_completo.json)
+
+```json
+[
+  {
+    "nome": "Drama",
+    "descricao": "O gênero dramático caracteriza-se por narrativas que exploram conflitos humanos profundos, emoções intensas e situações realistas. Filmes clássicos: Cidadão Kane (1941), O Poderoso Chefão (1972), Casablanca (1942).",
+    "ativo": true
+  }
+]
+```
+
+### Funções Técnicas Completo (funcoes_tecnicas_completo.json)
+
+```json
+[
+  {
+    "nome": "Director",
+    "descricao": "O diretor é responsável pela visão criativa geral do filme, coordenando todos os aspectos artísticos e técnicos da produção. Supervisiona atores, define o estilo visual e narrativo, e toma decisões criativas fundamentais durante toda a produção cinematográfica.",
+    "ativo": true
+  }
+]
+```
 
 ## Recursos Adicionais
 
