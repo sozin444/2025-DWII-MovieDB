@@ -9,7 +9,7 @@
 <!-- Informações básicas -->
 <p class="text-muted mb-3">
     {% if pessoa.data_nascimento %}
-        <strong>{{ pessoa.data_nascimento.strftime('%d/%m/%Y') }}</strong>
+        <strong>{{ pessoa.data_nascimento.strftime('%d/%m/%Y') }}</strong> ({{ pessoa.idade }} anos)
     {% endif %}
     {% if pessoa.local_nascimento %}
         {% if pessoa.data_nascimento %} • {% endif %}

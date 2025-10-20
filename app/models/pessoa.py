@@ -89,6 +89,14 @@ class Pessoa(db.Model, BasicRepositoryMixin, AuditMixin):
                 self.foto_mime = resultado.mime_type
                 self.com_foto = True
 
+    @property
+    def idade(self):
+        return None if not self.data_nascimento else (
+            datetime.now().year - self.data_nascimento.year -
+            ((datetime.now().month, datetime.now().day) <
+             (self.data_nascimento.month, self.data_nascimento.day))
+        )
+
     def _clear_foto_fields(self):
         """Limpa os campos relacionados à foto.
 
