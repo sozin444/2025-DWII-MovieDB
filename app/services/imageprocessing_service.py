@@ -99,6 +99,75 @@ class ImageProcessingService:
             raise ImageProcessingError(f"Erro ao processar arquivo de imagem: {str(e)}") from e
 
     @staticmethod
+    def processar_pessoa_foto(arquivo_upload,
+                             avatar_size: Optional[int] = None,
+                             max_file_size: Optional[int] = None,
+                             max_dimensions: Optional[Tuple[int, int]] = None,
+                             crop_aspect_ratio: bool = True) -> ImageProcessingResult:
+        """Processa foto de pessoa com crop automático para aspect ratio 2:3.
+
+        Similar ao processar_upload_foto, mas aplica crop automático para o aspect ratio
+        2:3 (padrão para fotos de pessoas) antes do processamento.
+
+        Args:
+            arquivo_upload (FileStorage): Objeto de arquivo (FileStorage do Flask).
+            avatar_size (Optional[int]): Tamanho do avatar em pixels. Se None, usa configuração da app ou 64.
+            max_file_size (Optional[int]): Tamanho máximo do arquivo em bytes. Se None, usa configuração da app ou 5MiB.
+            max_dimensions (Optional[Tuple[int, int]]): Dimensões máximas permitidas (largura, altura). Se None, usa configuração da app ou (2048, 2048).
+            crop_aspect_ratio (bool): Se True, aplica crop para aspect ratio 2:3. Default: True
+
+        Returns:
+            ImageProcessingResult: Resultado do processamento da imagem com crop aplicado.
+
+        Raises:
+            ImageProcessingError: Em caso de erro no processamento.
+            ValueError: Para arquivos inválidos ou muito grandes.
+
+        Examples:
+            >>> # Processar foto de pessoa com crop automático
+            >>> resultado = ImageProcessingService.processar_pessoa_foto(arquivo)
+            
+            >>> # Processar sem crop (comportamento original)
+            >>> resultado = ImageProcessingService.processar_pessoa_foto(arquivo, crop_aspect_ratio=False)
+        """
+        if arquivo_upload is None:
+            raise ValueError("Nenhum arquivo fornecido")
+
+        # Configurações com fallbacks
+        avatar_size = avatar_size or current_app.config.get('AVATAR_SIZE',
+                                                            ImageProcessingService.DEFAULT_AVATAR_SIZE)
+        max_file_size = max_file_size or current_app.config.get('MAX_IMAGE_SIZE',
+                                                                ImageProcessingService.DEFAULT_MAX_FILE_SIZE)
+        max_dimensions = max_dimensions or current_app.config.get('MAX_IMAGE_DIMENSIONS',
+                                                                  ImageProcessingService.DEFAULT_MAX_DIMENSIONS)
+
+        try:
+            # Lê os dados do arquivo
+            arquivo_upload.seek(0)  # Garante que está no início
+            imagem_data = arquivo_upload.read()
+
+            if not imagem_data:
+                raise ValueError("Arquivo de imagem vazio")
+
+            # Validação de tamanho
+            if len(imagem_data) > max_file_size:
+                raise ValueError(
+                        f"Arquivo muito grande. Máximo permitido: "
+                        f"{max_file_size / (1024 * 1024):.1f}MB")
+
+            # Processa a imagem com crop se solicitado
+            return ImageProcessingService._processar_imagem_bytes(
+                imagem_data,
+                arquivo_upload.mimetype,
+                avatar_size, 
+                max_dimensions,
+                crop_aspect_ratio
+            )
+
+        except (AttributeError, OSError) as e:
+            raise ImageProcessingError(f"Erro ao processar arquivo de imagem: {str(e)}") from e
+
+    @staticmethod
     def processar_base64(base64_string: str,
                          avatar_size: Optional[int] = None,
                          max_file_size: Optional[int] = None,
@@ -165,14 +234,16 @@ class ImageProcessingService:
     def _processar_imagem_bytes(imagem_data: bytes,
                                 mime_type: str,
                                 avatar_size: int,
-                                max_dimensions: Tuple[int, int]) -> ImageProcessingResult:
-        """Processa dados de imagem em bytes.
+                                max_dimensions: Tuple[int, int],
+                                crop_aspect_ratio: bool = False) -> ImageProcessingResult:
+        """Processa dados de imagem em bytes com opção de crop.
 
         Args:
             imagem_data (bytes): Dados da imagem em bytes.
             mime_type (str): Tipo MIME fornecido pelo upload.
             avatar_size (int): Tamanho do avatar.
             max_dimensions (Tuple[int, int]): Dimensões máximas.
+            crop_aspect_ratio (bool): Se True, aplica crop para aspect ratio 2:3. Default: False
 
         Returns:
             ImageProcessingResult: Resultado do processamento.
@@ -196,9 +267,18 @@ class ImageProcessingService:
                             f"Imagem muito grande. Máximo: {max_dimensions[0]}x{max_dimensions[
                                 1]} pixels")
 
-                # Salva foto original em buffer
+                # Preserva o formato original antes do crop
+                formato_original = imagem.format
+
+                # Aplica crop se solicitado
+                if crop_aspect_ratio:
+                    imagem = ImageProcessingService.crop_to_aspect_ratio(imagem, 2, 3)
+                    # Restaura o formato após o crop
+                    imagem.format = formato_original
+
+                # Salva foto processada em buffer
                 buffer_imagem = io.BytesIO()
-                imagem.save(buffer_imagem, format=imagem.format, optimize=True)
+                imagem.save(buffer_imagem, format=formato_original, optimize=True)
                 foto_bytes = buffer_imagem.getvalue()
 
                 # Gera avatar
@@ -254,6 +334,53 @@ class ImageProcessingService:
         buffer_avatar = io.BytesIO()
         imagem_avatar.save(buffer_avatar, format=formato_original, optimize=True)
         return buffer_avatar.getvalue(), imagem_avatar.size
+
+    @staticmethod
+    def crop_to_aspect_ratio(imagem: Image.Image, 
+                           aspect_width: int = 2, 
+                           aspect_height: int = 3) -> Image.Image:
+        """Corta uma imagem para um aspect ratio específico usando crop centralizado.
+
+        Corta a imagem para o aspect ratio desejado, mantendo a maior área possível
+        da imagem original. O crop é feito de forma centralizada.
+
+        Args:
+            imagem (PIL.Image.Image): Objeto PIL Image a ser cortado.
+            aspect_width (int): Largura do aspect ratio desejado. Default: 2
+            aspect_height (int): Altura do aspect ratio desejado. Default: 3
+
+        Returns:
+            PIL.Image.Image: Nova imagem cortada com o aspect ratio especificado.
+
+        Examples:
+            >>> # Crop para 2:3 (padrão para pessoas)
+            >>> cropped = ImageProcessingService.crop_to_aspect_ratio(image)
+            
+            >>> # Crop para 16:9
+            >>> cropped = ImageProcessingService.crop_to_aspect_ratio(image, 16, 9)
+        """
+        largura_orig, altura_orig = imagem.size
+        aspect_ratio_desejado = aspect_width / aspect_height
+        aspect_ratio_atual = largura_orig / altura_orig
+
+        if aspect_ratio_atual > aspect_ratio_desejado:
+            # Imagem é mais larga que o desejado - corta nas laterais
+            nova_largura = int(altura_orig * aspect_ratio_desejado)
+            nova_altura = altura_orig
+            left = (largura_orig - nova_largura) // 2
+            top = 0
+            right = left + nova_largura
+            bottom = nova_altura
+        else:
+            # Imagem é mais alta que o desejado - corta em cima e embaixo
+            nova_largura = largura_orig
+            nova_altura = int(largura_orig / aspect_ratio_desejado)
+            left = 0
+            top = (altura_orig - nova_altura) // 2
+            right = nova_largura
+            bottom = top + nova_altura
+
+        return imagem.crop((left, top, right, bottom))
 
     @staticmethod
     def generate_identicon_base64(data: str,

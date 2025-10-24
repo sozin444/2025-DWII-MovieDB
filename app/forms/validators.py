@@ -196,3 +196,97 @@ class CampoImutavel:
                     "Violação da integridade: campo %s alterado de '%s' para '%s'" %
                     (self.field_name, expected_value, field.data,))
             raise ValidationError(self.message)
+
+
+class ValidadorDataAntesDe:
+    """
+    Validador WTForms para garantir que uma data seja anterior a uma data de referência.
+    
+    Pode receber uma data específica ou o nome de um campo no formulário para comparação.
+    """
+    
+    def __init__(self, reference_date, message: Optional[str] = None):
+        """
+        Inicializa o validador de data anterior.
+        
+        Args:
+            reference_date: Data de referência (datetime.date) ou nome do campo (str) no formulário.
+            message (Optional[str]): Mensagem de erro personalizada.
+        """
+        self.reference_date = reference_date
+        self.message = message or "A data deve ser anterior à data de referência"
+    
+    def __call__(self, form, field):
+        """
+        Valida que a data do campo é anterior à data de referência.
+        
+        Args:
+            form: O formulário sendo validado.
+            field: O campo de data sendo verificado.
+            
+        Raises:
+            ValidationError: Se a data for posterior ou igual à data de referência.
+        """
+        if not field.data:
+            return  # Campo vazio é válido (usar Optional() se necessário)
+        
+        # Se reference_date é uma string, busca o campo no formulário
+        if isinstance(self.reference_date, str):
+            if not hasattr(form, self.reference_date):
+                return  # Campo de referência não existe
+            reference_field = getattr(form, self.reference_date)
+            if not reference_field.data:
+                return  # Campo de referência vazio, não valida
+            ref_date = reference_field.data
+        else:
+            ref_date = self.reference_date
+        
+        if field.data >= ref_date:
+            raise ValidationError(self.message)
+
+
+class ValidadorDataDepoisDe:
+    """
+    Validador WTForms para garantir que uma data seja posterior a uma data de referência.
+    
+    Pode receber uma data específica ou o nome de um campo no formulário para comparação.
+    """
+    
+    def __init__(self, reference_date, message: Optional[str] = None):
+        """
+        Inicializa o validador de data posterior.
+        
+        Args:
+            reference_date: Data de referência (datetime.date) ou nome do campo (str) no formulário.
+            message (Optional[str]): Mensagem de erro personalizada.
+        """
+        self.reference_date = reference_date
+        self.message = message or "A data deve ser posterior à data de referência"
+    
+    def __call__(self, form, field):
+        """
+        Valida que a data do campo é posterior à data de referência.
+        
+        Args:
+            form: O formulário sendo validado.
+            field: O campo de data sendo verificado.
+            
+        Raises:
+            ValidationError: Se a data for anterior ou igual à data de referência.
+        """
+        if not field.data:
+            return  # Campo vazio é válido (usar Optional() se necessário)
+        
+        # Se reference_date é uma string, busca o campo no formulário
+        if isinstance(self.reference_date, str):
+            if not hasattr(form, self.reference_date):
+                return  # Campo de referência não existe
+            reference_field = getattr(form, self.reference_date)
+            if not reference_field.data:
+                return  # Campo de referência vazio, não valida
+            ref_date = reference_field.data
+        else:
+            ref_date = self.reference_date
+        
+        if field.data <= ref_date:
+            raise ValidationError(self.message)

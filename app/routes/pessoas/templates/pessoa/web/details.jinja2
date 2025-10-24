@@ -20,6 +20,17 @@
                     </div>
                 </div>
                 <div class="card-body">
+                    <!-- Navigation and action buttons -->
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <!-- Navigation back to list -->
+                            <a href="{{ url_for('pessoa.pessoa_list') }}" class="btn btn-outline-primary">
+                                {{ render_icon('arrow-left', size='1em') }} Voltar à Lista
+                            </a>
+                            
+                        </div>
+                    </div>
+                    
                     <div class="row">
                         <!-- Coluna da Filmografia como Ator -->
                         <div class="col-md-6">
@@ -105,4 +116,68 @@
             </div>
         </div>
     </div>
+
+    <!-- Delete confirmation modal -->
+    <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteModalLabel">Confirmar Deleção</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Tem certeza que deseja deletar a pessoa <strong id="deletePersonName"></strong>?</p>
+                    <div class="alert alert-warning" role="alert">
+                        <strong>Atenção:</strong> Esta ação não pode ser desfeita.
+                    </div>
+                    <div id="relationshipWarnings" class="alert alert-danger d-none" role="alert">
+                        <strong>Aviso:</strong> Esta pessoa possui relacionamentos com filmes que podem impedir a deleção.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <form id="deleteForm" method="POST" style="display: inline;">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}" id="csrf-token-input"/>
+                        <button type="submit" class="btn btn-danger">Deletar</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function confirmDelete(personName, deleteUrl) {
+    // Set person name in modal
+    document.getElementById('deletePersonName').textContent = personName;
+    
+    // Set form action
+    document.getElementById('deleteForm').action = deleteUrl;
+    
+    // CSRF token is already set in the hidden input from the template
+    
+    // Check for relationships and show warnings if needed
+    const relationshipWarnings = document.getElementById('relationshipWarnings');
+    {% if papeis or funcoes_tecnicas %}
+        // Show relationship warnings with specific details
+        let warningText = 'Esta pessoa possui relacionamentos com filmes que podem impedir a deleção:';
+        {% if papeis %}
+            warningText += '\n• Possui {{ papeis|length }} papel(éis) de atuação em filmes';
+        {% endif %}
+        {% if funcoes_tecnicas %}
+            warningText += '\n• Possui {{ funcoes_tecnicas|length }} função(ões) técnica(s) em filmes';
+        {% endif %}
+        
+        relationshipWarnings.innerHTML = '<strong>Aviso:</strong> ' + warningText.replace(/\n/g, '<br>');
+        relationshipWarnings.classList.remove('d-none');
+    {% else %}
+        relationshipWarnings.classList.add('d-none');
+    {% endif %}
+    
+    // Show modal
+    var deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    deleteModal.show();
+}
+</script>
 {% endblock %}

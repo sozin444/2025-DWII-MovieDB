@@ -27,3 +27,18 @@
 {% else %}
     <p class="text-muted mb-3"><em>Biografia não disponível.</em></p>
 {% endif %}
+
+<!-- Action buttons for authenticated users -->
+{% if current_user.is_authenticated %}
+    <div class="mt-3">
+        <a href="{{ url_for('pessoa.pessoa_edit', pessoa_id=pessoa.id) }}" 
+           class="btn btn-primary btn-sm me-2">
+            {{ render_icon('pencil-fill') }} Editar
+        </a>
+        <button type="button" 
+                class="btn btn-danger btn-sm" 
+                onclick="confirmDelete('{{ pessoa.nome }}', '{{ url_for('pessoa.pessoa_delete', pessoa_id=pessoa.id) }}')">
+            {{ render_icon('trash-fill') }} Deletar
+        </button>
+    </div>
+{% endif %}

@@ -65,7 +65,7 @@ class Pessoa(db.Model, BasicRepositoryMixin, AuditMixin):
 
         Atualiza os campos relacionados à foto. Se o valor for None, remove
         a foto e limpa os campos associados. Caso contrário, tenta armazenar
-        a foto em base64 e o tipo MIME.
+        a foto em base64 e o tipo MIME com crop automático para aspect ratio 2:3.
 
         IMPORTANTE: Este setter NÃO realiza commit. O chamador é responsável por
         gerenciar a transação (commit/rollback).
@@ -81,7 +81,8 @@ class Pessoa(db.Model, BasicRepositoryMixin, AuditMixin):
             self._clear_foto_fields()
         else:
             try:
-                resultado = ImageProcessingService.processar_upload_foto(value)
+                # Usa o novo método que aplica crop automático para aspect ratio 2:3
+                resultado = ImageProcessingService.processar_pessoa_foto(value)
             except (ImageProcessingError, ValueError):
                 self._clear_foto_fields()
                 raise
