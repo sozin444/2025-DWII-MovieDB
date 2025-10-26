@@ -15,12 +15,19 @@ class FuncaoTecnicaEditForm(FlaskForm):
     nome = StringField(
             label="Nome",
             validators=[InputRequired(message="É obrigatório informar um nome para a função técnica"),
-                        Length(max=100, message="O nome pode ter até 100 caracteres")]
+                        Length(max=100, message="O nome pode ter até 100 caracteres"),],
+            render_kw={
+                'placeholder': 'Digite o nome da função técnica'
+            }
     )
 
     descricao = TextAreaField(
             label="Descrição",
-            validators=[Length(max=1024, message="A descrição pode ter até 1024 caracteres")]
+            validators=[Length(max=1024, message="A descrição pode ter até 1024 caracteres")],
+            render_kw={
+                'placeholder': 'O que essa função técnica faz?'
+            }
+
     )
 
     ativo = BooleanField(

@@ -15,12 +15,20 @@ class GeneroEditForm(FlaskForm):
     nome = StringField(
             label="Nome",
             validators=[InputRequired(message="É obrigatório informar um nome para o gênero"),
-                        Length(max=40, message="O nome pode ter até 40 caracteres")]
+                        Length(max=40, message="O nome pode ter até 40 caracteres")],
+            render_kw={
+                'placeholder': 'Digite o nome do gênero'
+            }
+
     )
 
     descricao = TextAreaField(
             label="Descrição",
-            validators=[Length(max=1024, message="A descrição pode ter até 1024 caracteres")]
+            validators=[Length(max=1024, message="A descrição pode ter até 1024 caracteres")],
+            render_kw={
+                'placeholder': 'O que caracteriza esse gênero?'
+            }
+
     )
 
     ativo = BooleanField(

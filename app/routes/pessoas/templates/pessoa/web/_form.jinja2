@@ -20,8 +20,8 @@
                 {% endif %}
             </div>
             
-            <!-- Nome Artístico (apenas se a pessoa já é um ator) -->
-            {% if edit_mode and pessoa and pessoa.ator and form.nome_artistico %}
+            <!-- Nome Artístico -->
+            {% if form.nome_artistico %}
                 <div class="mb-3">
                     {{ form.nome_artistico.label(class="form-label") }}
                     <div class="input-group">
@@ -30,7 +30,12 @@
                     </div>
                     <div class="form-text">
                         <small class="text-muted">
-                            {{ render_icon('info-circle', size='0.9em') }} Esta pessoa é um ator. Você pode editar o nome artístico aqui.
+                            {{ render_icon('info-circle', size='0.9em') }}
+                            {% if edit_mode and pessoa and pessoa.ator %}
+                                Esta pessoa é um ator. Você pode editar o nome artístico aqui.
+                            {% else %}
+                                Preencha este campo se a pessoa for um ator e usar nome artístico.
+                            {% endif %}
                         </small>
                     </div>
                     {% if form.nome_artistico.errors %}

@@ -67,17 +67,18 @@ def pessoa_foto(pessoa_id):
     Returns:
         flask.Response: Imagem da foto da pessoa.
     """
-    pessoa = Pessoa.get_by_id(pessoa_id)
-
-    if pessoa:
-        foto_data, mime_type = pessoa.foto
-        return ImageProcessingService.servir_imagem(foto_data, mime_type)
-    else:
-        # Usuário não encontrado - retorna placeholder
-        placeholder_data = ImageProcessingService.gerar_placeholder(300, 400,
+    try:
+        pessoa = Pessoa.get_by_id(pessoa_id,
+                                  raise_if_not_found=True)
+    except Pessoa.RecordNotFoundError:
+        # Pessoa não encontrada - retorna placeholder
+        foto_data = ImageProcessingService.gerar_placeholder(300, 400,
                                                                     "Pessoa\nnão encontrada",
                                                                     36)
-        return ImageProcessingService.servir_imagem(placeholder_data, 'image/png')
+        mime_type = 'image/png'
+    else:
+        foto_data, mime_type = pessoa.foto
+    return ImageProcessingService.servir_imagem(foto_data, mime_type)
 
 
 @pessoa_bp.route('/<uuid:pessoa_id>/detail', methods=['GET'])
@@ -93,9 +94,10 @@ def pessoa_detalhes(pessoa_id):
     Raises:
         404: Se a pessoa não for encontrada
     """
-    pessoa = Pessoa.get_by_id(pessoa_id)
-    
-    if not pessoa:
+    try:
+        pessoa = Pessoa.get_by_id(pessoa_id,
+                                  raise_if_not_found=True)
+    except Pessoa.RecordNotFoundError:
         abort(404)
     
     # Obter funções técnicas da pessoa
@@ -180,12 +182,18 @@ def pessoa_edit(pessoa_id):
         
     Requirements: 3.1, 3.4, 3.5, 6.2
     """
-    pessoa = Pessoa.get_by_id(pessoa_id)
-    
-    if not pessoa:
+    try:
+        pessoa = Pessoa.get_by_id(pessoa_id,
+                                  raise_if_not_found=True)
+    except Pessoa.RecordNotFoundError:
         abort(404)
-    
-    form = PessoaForm(pessoa=pessoa)
+
+    # Inicializar formulário: pré-preencher apenas em GET requests
+    # Em POST requests, Flask-WTF já processou os dados do request
+    if request.method == 'GET':
+        form = PessoaForm(pessoa=pessoa)
+    else:
+        form = PessoaForm()
     
     if form.validate_on_submit():
         try:
@@ -238,9 +246,10 @@ def pessoa_delete(pessoa_id):
         
     Requirements: 4.1, 4.2, 4.3, 4.5, 6.2
     """
-    pessoa = Pessoa.get_by_id(pessoa_id)
-    
-    if not pessoa:
+    try:
+        pessoa = Pessoa.get_by_id(pessoa_id,
+                                  raise_if_not_found=True)
+    except Pessoa.RecordNotFoundError:
         abort(404)
     
     try:

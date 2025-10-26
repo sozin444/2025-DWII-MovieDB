@@ -73,13 +73,14 @@ def criar_funcao_tecnica():
         Template renderizado com o formulário de criação ou redirect após salvar
     """
     form = FuncaoTecnicaEditForm()
+    del form.ativo
 
     if form.validate_on_submit():
         # Cria uma nova função técnica com os dados do formulário
         funcao_tecnica = FuncaoTecnica()
         funcao_tecnica.nome = form.nome.data.strip()
         funcao_tecnica.descricao = form.descricao.data
-        funcao_tecnica.ativo = form.ativo.data
+        funcao_tecnica.ativo = True
 
         # Salva no banco de dados
         try:
@@ -108,10 +109,12 @@ def editar_funcao_tecnica(funcao_tecnica_id: uuid.UUID):
     Returns:
         Template renderizado com o formulário de edição ou redirect após salvar
     """
-    funcao_tecnica: FuncaoTecnica = FuncaoTecnica.get_by_id(funcao_tecnica_id)
-    if funcao_tecnica is None:
+    try:
+        funcao_tecnica = FuncaoTecnica.get_by_id(funcao_tecnica_id,
+                                                 raise_if_not_found=True)
+    except FuncaoTecnica.RecordNotFoundError:
         flash("Função técnica não encontrada.", category='warning')
-        return redirect(url_for('funcoes_tecnicas.listar_funcoes_tecnicas'))
+        return redirect(url_for('funcao_tecnica.listar_funcoes_tecnicas'))
 
     # Conta o número de pessoas executando esta função
     numero_de_pessoas = len(funcao_tecnica.pessoas)
@@ -157,8 +160,10 @@ def deletar_funcao_tecnica(funcao_tecnica_id: uuid.UUID):
     Returns:
         Redirect para a lista de funções técnicas
     """
-    funcao_tecnica: FuncaoTecnica = FuncaoTecnica.get_by_id(funcao_tecnica_id)
-    if funcao_tecnica is None:
+    try:
+        funcao_tecnica = FuncaoTecnica.get_by_id(funcao_tecnica_id,
+                                                 raise_if_not_found=True)
+    except FuncaoTecnica.RecordNotFoundError:
         flash("Função técnica não encontrada.", category='warning')
         return redirect(url_for('funcao_tecnica.listar_funcoes_tecnicas'))
 

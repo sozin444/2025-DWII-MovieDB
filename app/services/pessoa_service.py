@@ -281,11 +281,43 @@ class PessoaService:
             if form_data.foto.data and hasattr(form_data.foto.data, 'filename') and form_data.foto.data.filename:
                 pessoa.foto = form_data.foto.data
 
-            # Gerencia o registro de Ator baseado no nome_artistico (apenas se a pessoa já é ator)
-            if pessoa.ator and hasattr(form_data, 'nome_artistico'):
-                nome_artistico = form_data.nome_artistico.data.strip() if form_data.nome_artistico.data else ""
-                # Atualiza o nome artístico do ator existente
-                pessoa.ator.nome_artistico = nome_artistico if nome_artistico else None
+            # Gerencia o registro de Ator baseado no nome_artistico
+            if hasattr(form_data, 'nome_artistico'):
+                # Obtém o valor do campo, tratando None e string vazia
+                raw_value = form_data.nome_artistico.data
+                from flask import current_app
+                current_app.logger.debug(f"[ATOR] Raw value from form: '{raw_value}' (type: {type(raw_value)})")
+                current_app.logger.debug(f"[ATOR] Pessoa has ator: {pessoa.ator is not None}")
+                if pessoa.ator:
+                    current_app.logger.debug(f"[ATOR] Current ator.nome_artistico: '{pessoa.ator.nome_artistico}'")
+
+                # Normaliza o valor: None, string vazia, ou string 'None' -> None
+                if raw_value is None or raw_value == '' or str(raw_value).strip().lower() == 'none':
+                    nome_artistico = None
+                else:
+                    nome_artistico = str(raw_value).strip()
+
+                current_app.logger.debug(f"[ATOR] Normalized nome_artistico: '{nome_artistico}'")
+
+                if nome_artistico:
+                    # Se há nome artístico fornecido
+                    if pessoa.ator:
+                        # Atualiza o nome artístico do ator existente
+                        current_app.logger.debug(f"[ATOR] Updating existing ator ID {pessoa.ator.id}: '{pessoa.ator.nome_artistico}' -> '{nome_artistico}'")
+                        pessoa.ator.nome_artistico = nome_artistico
+                        session.add(pessoa.ator)  # Marca explicitamente para update
+                    else:
+                        # Cria novo registro de Ator
+                        current_app.logger.debug(f"[ATOR] Creating new ator for pessoa ID {pessoa.id} with nome_artistico: '{nome_artistico}'")
+                        novo_ator = Ator(pessoa_id=pessoa.id, nome_artistico=nome_artistico)
+                        session.add(novo_ator)
+                else:
+                    # Se nome artístico foi removido e pessoa é ator
+                    if pessoa.ator:
+                        # Remove o nome artístico (mas mantém o registro de Ator se houver atuações)
+                        current_app.logger.debug(f"[ATOR] Removing nome_artistico from ator ID {pessoa.ator.id}")
+                        pessoa.ator.nome_artistico = None
+                        session.add(pessoa.ator)  # Marca explicitamente para update
 
             # O AuditMixin automaticamente atualiza updated_at
             if auto_commit:

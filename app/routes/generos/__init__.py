@@ -72,12 +72,13 @@ def criar_genero():
         Template renderizado com o formulário de criação ou redirect após salvar
     """
     form = GeneroEditForm()
+    del form.ativo
 
     if form.validate_on_submit():
         # Cria um novo gênero com os dados do formulário
         genero = Genero()
         genero.nome = form.nome.data.strip()
-        genero.ativo = form.ativo.data
+        genero.ativo = True
         genero.descricao = form.descricao.data
 
         # Salva no banco de dados
@@ -107,8 +108,10 @@ def editar_genero(genero_id: uuid.UUID):
     Returns:
         Template renderizado com o formulário de edição ou redirect após salvar
     """
-    genero: Genero = Genero.get_by_id(genero_id)
-    if genero is None:
+    try:
+        genero = Genero.get_by_id(genero_id,
+                                  raise_if_not_found=True)
+    except Genero.RecordNotFoundError:
         flash("Gênero não encontrado.", category='warning')
         return redirect(url_for('generos.listar_generos'))
 
@@ -155,10 +158,12 @@ def deletar_genero(genero_id: uuid.UUID):
     Returns:
         Redirect para a lista de gêneros
     """
-    genero: Genero = Genero.get_by_id(genero_id)
-    if genero is None:
+    try:
+        genero = Genero.get_by_id(genero_id,
+                                  raise_if_not_found=True)
+    except Genero.RecordNotFoundError:
         flash("Gênero não encontrado.", category='warning')
-        return redirect(url_for('genero.listar_generos'))
+        return redirect(url_for('generos.listar_generos'))
 
     # Verifica se há filmes associados
     numero_de_filmes = len(genero.filmes)
