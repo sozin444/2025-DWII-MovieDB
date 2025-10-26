@@ -63,6 +63,10 @@ class User(db.Model, BasicRepositoryMixin, AuditMixin, UserMixin):
             lazy='dynamic'  # Permite usar como query, não carrega tudo de uma vez
     )
 
+    # Relacionamento: um usuário pode avaliar vários filmes
+    avaliacoes: Mapped[list['Avaliacao']] = relationship(back_populates='usuario',
+                                                         cascade='all, delete-orphan')
+
     @property
     def email(self):
         """Retorna o e-mail normalizado do usuário.
