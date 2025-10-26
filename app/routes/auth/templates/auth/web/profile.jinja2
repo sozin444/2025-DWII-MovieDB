@@ -4,7 +4,8 @@
 
 {% block styles %}
     {{ super() }}
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.1/cropper.min.css">
 {% endblock %}
 
 {% block content %}
@@ -32,7 +33,8 @@
                                             {{ form.remover_foto.label(class="form-check-label") }}
                                         </div>
                                     {% else %}
-                                        <p class="text-muted"><small>Foto de perfil gerada automaticamente</small></p>
+                                        <p class="text-muted"><small>Foto de perfil gerada
+                                            automaticamente</small></p>
                                     {% endif %}
                                 </div>
 
@@ -93,22 +95,74 @@
                 </form>
             </div>
         </div>
+
+        <!-- Seção de Avaliações do Usuário -->
+        <div class="row justify-content-center mt-4">
+            <div class="col-12 col-sm-12 col-md-12 col-lg-10 col-xl-8 col-xxl-6">
+                {% if avaliacoes %}
+                    <div class="card shadow-lg">
+                        <div class="card-header px-5 py-4">
+                            <h3 class="fw-bold mb-0 card-title">
+                                {{ render_icon('star-fill') }} Minhas Avaliações
+                                <span class="badge bg-primary ms-2">{{ avaliacoes|length }}</span>
+                            </h3>
+                        </div>
+                        <div class="card-body px-5 py-4">
+                            <!-- Primeiras 5 avaliações sempre visíveis -->
+                            <div id="reviews-visible">
+                                {% for avaliacao in avaliacoes[:5] %}
+                                    {% include 'auth/web/_user_review_item.jinja2' %}
+                                {% endfor %}
+                            </div>
+
+                            <!-- Avaliações adicionais (inicialmente ocultas) -->
+                            {% if avaliacoes|length > 5 %}
+                                <div id="reviews-hidden" style="display: none;">
+                                    {% for avaliacao in avaliacoes[5:] %}
+                                        {% include 'auth/web/_user_review_item.jinja2' %}
+                                    {% endfor %}
+                                </div>
+
+                                <!-- Botão "Ver Mais" -->
+                                <div class="text-center mt-3">
+                                    <button id="toggle-reviews-btn"
+                                            class="btn btn-outline-primary"
+                                            onclick="toggleReviews()">
+                                        <span id="toggle-icon">{{ render_icon('chevron-down') }}</span>
+                                        <span id="toggle-text">Ver mais {{ avaliacoes|length - 5 }} avaliações</span>
+                                    </button>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% else %}
+                    <div class="alert alert-info mb-0" role="alert">
+                        {{ render_icon('info-circle-fill') }} Você ainda não avaliou filmes.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
     </div>
 
     <!-- Modal de Confirmação para Desativar 2FA -->
-    <div class="modal fade" id="disable2faModal" tabindex="-1" aria-labelledby="disable2faModalLabel" aria-hidden="true">
+    <div class="modal fade" id="disable2faModal" tabindex="-1"
+         aria-labelledby="disable2faModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header bg-warning">
-                    <h5 class="modal-title" id="disable2faModalLabel">{{ render_icon('exclamation-triangle-fill') }} Desativar Autenticação de Dois Fatores</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                    <h5 class="modal-title"
+                        id="disable2faModalLabel">{{ render_icon('exclamation-triangle-fill') }}
+                        Desativar Autenticação de Dois Fatores</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"
+                            aria-label="Fechar"></button>
                 </div>
                 <form method="POST" action="{{ url_for('auth.disable_2fa') }}" id="disable2faForm">
                     {{ form.csrf_token() }}
                     <div class="modal-body">
                         <div class="alert alert-warning" role="alert">
                             <strong>{{ render_icon('shield-exclamation') }} ATENÇÃO:</strong>
-                            Desativar o segundo fator de autenticação reduz significativamente a segurança da sua conta.
+                            Desativar o segundo fator de autenticação reduz significativamente a
+                            segurança da sua conta.
                         </div>
 
                         <p><strong>Por que você está desativando?</strong></p>
@@ -120,7 +174,8 @@
 
                         <hr>
 
-                        <p class="mb-3"><strong>Para confirmar a desativação, digite sua senha:</strong></p>
+                        <p class="mb-3"><strong>Para confirmar a desativação, digite sua
+                            senha:</strong></p>
                         <div class="mb-3">
                             <label for="confirm-password" class="form-label">Senha</label>
                             <input type="password"
@@ -133,14 +188,17 @@
                         </div>
 
                         <div class="form-check mb-3">
-                            <input class="form-check-input" type="checkbox" id="confirmDisable" required>
+                            <input class="form-check-input" type="checkbox" id="confirmDisable"
+                                   required>
                             <label class="form-check-label" for="confirmDisable">
                                 Entendo que isso reduz a segurança da minha conta
                             </label>
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                            Cancelar
+                        </button>
                         <button type="submit" class="btn btn-danger">Confirmar Desativação</button>
                     </div>
                 </form>
@@ -149,12 +207,14 @@
     </div>
 
     <!-- Modal de Crop de Imagem -->
-    <div class="modal fade" id="cropModal" tabindex="-1" aria-labelledby="cropModalLabel" aria-hidden="true">
+    <div class="modal fade" id="cropModal" tabindex="-1" aria-labelledby="cropModalLabel"
+         aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="cropModalLabel">Ajustar foto de perfil</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"
+                            aria-label="Fechar"></button>
                 </div>
                 <div class="modal-body">
                     <div class="row">
@@ -166,14 +226,18 @@
                         <div class="col-md-4">
                             <div class="text-center">
                                 <p class="text-muted mb-2">Preview:</p>
-                                <div id="cropPreview" style="width: 200px; height: 300px; overflow: hidden; margin: 0 auto; border: 1px solid #ddd;"></div>
+                                <div id="cropPreview"
+                                     style="width: 200px; height: 300px; overflow: hidden; margin: 0 auto; border: 1px solid #ddd;"></div>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="button" class="btn btn-primary" id="cropConfirm">Confirmar</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        Cancelar
+                    </button>
+                    <button type="button" class="btn btn-primary" id="cropConfirm">Confirmar
+                    </button>
                 </div>
             </div>
         </div>
@@ -193,7 +257,7 @@
         const cropConfirm = document.getElementById('cropConfirm');
 
         // Detecta quando o usuário seleciona uma imagem
-        fileInput.addEventListener('change', function(e) {
+        fileInput.addEventListener('change', function (e) {
             const files = e.target.files;
             if (files && files.length > 0) {
                 const file = files[0];
@@ -210,12 +274,12 @@
 
                 // Lê o arquivo e abre o modal
                 const reader = new FileReader();
-                reader.onload = function(event) {
+                reader.onload = function (event) {
                     cropImage.src = event.target.result;
                     cropModal.show();
 
                     // Inicializa o cropper quando o modal é mostrado
-                    document.getElementById('cropModal').addEventListener('shown.bs.modal', function() {
+                    document.getElementById('cropModal').addEventListener('shown.bs.modal', function () {
                         if (cropper) {
                             cropper.destroy();
                         }
@@ -226,18 +290,18 @@
                             autoCropArea: 1,
                             responsive: true,
                             preview: cropPreview,
-                            ready: function() {
+                            ready: function () {
                                 // Cropper está pronto
                             }
                         });
-                    }, { once: true });
+                    }, {once: true});
                 };
                 reader.readAsDataURL(file);
             }
         });
 
         // Confirma o crop
-        cropConfirm.addEventListener('click', function() {
+        cropConfirm.addEventListener('click', function () {
             if (!cropper) {
                 return;
             }
@@ -260,11 +324,11 @@
             }
 
             // Converte para blob e cria um arquivo para envio
-            canvas.toBlob(function(blob) {
+            canvas.toBlob(function (blob) {
                 // Cria um File a partir do Blob (mais eficiente que base64)
                 const extensao = mimeType.split('/')[1]; // 'image/jpeg' -> 'jpeg'
                 const fileName = `foto_cropada.${extensao}`;
-                const file = new File([blob], fileName, { type: mimeType });
+                const file = new File([blob], fileName, {type: mimeType});
 
                 // Cria um novo DataTransfer para atribuir ao input file
                 const dataTransfer = new DataTransfer();
@@ -293,7 +357,7 @@
         });
 
         // Limpa o cropper quando o modal é fechado sem confirmar
-        document.getElementById('cropModal').addEventListener('hidden.bs.modal', function() {
+        document.getElementById('cropModal').addEventListener('hidden.bs.modal', function () {
             if (cropper) {
                 cropper.destroy();
                 cropper = null;
@@ -301,7 +365,7 @@
         });
 
         // Ao submeter o formulário, remove o campo de arquivo se houver foto cropada
-        fileInput.form.addEventListener('submit', function(e) {
+        fileInput.form.addEventListener('submit', function (e) {
             const fotoCropada = document.querySelector('input[name="foto_cropada"]');
             if (fotoCropada && fotoCropada.value) {
                 // Tem foto cropada, então remove o campo de arquivo do DOM para não corromper o multipart
@@ -318,7 +382,7 @@
 
         // Detecta quando o checkbox de 2FA é modificado
         if (usa2faCheckbox) {
-            usa2faCheckbox.addEventListener('change', function(e) {
+            usa2faCheckbox.addEventListener('change', function (e) {
                 const estaMarcado = this.checked;
 
                 // Se está tentando DESMARCAR (desativar 2FA) e estava ativado
@@ -339,7 +403,7 @@
         }
 
         // Quando o modal é fechado sem confirmar (clicou em cancelar ou X)
-        document.getElementById('disable2faModal').addEventListener('hidden.bs.modal', function() {
+        document.getElementById('disable2faModal').addEventListener('hidden.bs.modal', function () {
             // Garante que o checkbox permanece marcado se cancelou
             if (usa2faCheckbox && valorOriginal2FA) {
                 usa2faCheckbox.checked = true;
@@ -348,10 +412,34 @@
 
         // Quando o formulário do modal é submetido (confirmou desativação)
         if (disable2faForm) {
-            disable2faForm.addEventListener('submit', function(e) {
+            disable2faForm.addEventListener('submit', function (e) {
                 // Permite o envio do formulário normalmente
                 // A rota /disable_2fa vai processar a desativação
             });
+        }
+
+        // ========== CONTROLE DE EXIBIÇÃO DAS AVALIAÇÕES ==========
+        /**
+         * Alterna a exibição das avaliações ocultas (mais de 5)
+         */
+        function toggleReviews() {
+            const hiddenReviews = document.getElementById('reviews-hidden');
+            const toggleBtn = document.getElementById('toggle-reviews-btn');
+            const toggleIcon = document.getElementById('toggle-icon');
+            const toggleText = document.getElementById('toggle-text');
+
+            if (hiddenReviews.style.display === 'none') {
+                // Mostrar avaliações ocultas
+                hiddenReviews.style.display = 'block';
+                toggleIcon.innerHTML = '{{ render_icon("chevron-up")|safe }}';
+                toggleText.textContent = 'Ver menos';
+            } else {
+                // Ocultar avaliações
+                hiddenReviews.style.display = 'none';
+                toggleIcon.innerHTML = '{{ render_icon("chevron-down")|safe }}';
+                const hiddenCount = hiddenReviews.querySelectorAll('.card').length;
+                toggleText.textContent = `Ver mais ${hiddenCount} avaliações`;
+            }
         }
     </script>
 {% endblock %}

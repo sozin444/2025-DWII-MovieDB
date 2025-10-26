@@ -523,11 +523,15 @@ def profile():
     if current_user.usa_2fa:
         backup_codes_count = Backup2FAService.contar_tokens_disponiveis(current_user)
 
+    # Busca as avaliações do usuário ordenadas por título do filme (A-Z)
+    avaliacoes = UserService.listar_avaliacoes(current_user, order_by='titulo', ascending=True)
+
     return render_template('auth/web/profile.jinja2',
                            title="Perfil do usuário",
                            title_card="Altere seus dados",
                            form=form,
-                           backup_codes_count=backup_codes_count)
+                           backup_codes_count=backup_codes_count,
+                           avaliacoes=avaliacoes)
 
 
 @auth_bp.route('ativar_2fa', methods=['GET', 'POST'])

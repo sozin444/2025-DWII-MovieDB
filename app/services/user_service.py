@@ -734,6 +734,74 @@ class UserService:
                     error_message=str(e)
             )
 
+    @classmethod
+    def listar_avaliacoes(cls,
+                         usuario: User,
+                         order_by: str = 'titulo',
+                         ascending: bool = True,
+                         session=None) -> list:
+        """Lista todas as avaliações de um usuário com ordenação configurável.
+
+        Args:
+            usuario (User): Instância do usuário
+            order_by (str): Campo para ordenação. Opções: 'titulo', 'titulo_original', 'data'. Default: 'titulo'
+            ascending (bool): Se True, ordena ascendente. Se False, ordena descendente. Default: True
+            session: Sessão SQLAlchemy opcional. Se None, usa a sessão padrão da classe.
+
+        Returns:
+            list: Lista de objetos Avaliacao ordenados conforme especificado
+
+        Raises:
+            ValueError: Se order_by contiver um valor inválido
+
+        Examples:
+            >>> # Ordenar por título do filme (A-Z)
+            >>> avaliacoes = UserService.listar_avaliacoes(current_user, order_by='titulo')
+
+            >>> # Ordenar por data mais recente primeiro
+            >>> avaliacoes = UserService.listar_avaliacoes(current_user,
+            ...                                            order_by='data',
+            ...                                            ascending=False)
+
+            >>> # Ordenar por título descendente (Z-A)
+            >>> avaliacoes = UserService.listar_avaliacoes(current_user,
+            ...                                            order_by='titulo',
+            ...                                            ascending=False)
+        """
+        from app.models.juncoes import Avaliacao
+        from app.models.filme import Filme
+        from sqlalchemy import select, desc
+
+        if session is None:
+            session = cls._default_session
+
+        # Valida o campo de ordenação
+        valid_order_fields = ['titulo', 'data']
+        if order_by not in valid_order_fields:
+            raise ValueError(f"Campo de ordenação inválido: '{order_by}'. "
+                           f"Valores permitidos: {', '.join(valid_order_fields)}")
+
+        # Constrói statement base com JOIN
+        stmt = select(Avaliacao).join(Filme).where(
+            Avaliacao.usuario_id == usuario.id
+        )
+
+        # Define o campo de ordenação
+        if order_by == 'titulo':
+            order_field = Filme.titulo_portugues
+        elif order_by == 'titulo_original':
+            order_field = Filme.titulo_original
+        else:  # order_by == 'data'
+            order_field = Avaliacao.updated_at
+
+        # Aplica ordenação (ascendente ou descendente)
+        if ascending:
+            stmt = stmt.order_by(order_field)
+        else:
+            stmt = stmt.order_by(desc(order_field))
+
+        return session.execute(stmt).scalars().all()
+
     @staticmethod
     def _enviar_email_ativacao(usuario: User, email_service) -> tuple[str, bool]:
         """Metodo auxiliar privado para enviar email de ativação/confirmação.

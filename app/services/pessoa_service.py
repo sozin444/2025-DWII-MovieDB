@@ -8,11 +8,11 @@ Classes principais:
 """
 from collections import defaultdict
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.infra.modulos import db
-from app.models.pessoa import Pessoa
+from app.models.pessoa import Ator, Pessoa
 from .utils import aplicar_filtro_creditado
 
 
@@ -132,13 +132,14 @@ class PessoaService:
         return funcoes
 
     @classmethod
-    def listar_pessoas(cls, page: int = 1, per_page: int = 20, search: str = None, session=None, auto_commit: bool = True):
-        """Lista pessoas com paginação e busca por nome.
+    def listar_pessoas(cls, page: int = 1, per_page: int = 20, search: str = None, session=None,
+                       auto_commit: bool = True):
+        """Lista pessoas com paginação e busca por nome ou nome artístico.
 
         Args:
             page (int): Número da página (começa em 1). Default: 1
             per_page (int): Número de registros por página. Default: 20
-            search (str): Termo de busca para filtrar por nome. Default: None
+            search (str): Termo de busca para filtrar por nome ou nome artístico. Default: None
             session: Sessão SQLAlchemy opcional. Se None, usa a sessão padrão da classe.
             auto_commit (bool): Se True, faz commit automaticamente. Se False, apenas
                                atualiza o objeto (útil quando chamado dentro de outra transação).
@@ -158,7 +159,7 @@ class PessoaService:
             >>> resultado = PessoaService.listar_pessoas()
             >>> pessoas = resultado.items
 
-            >>> # Buscar por nome
+            >>> # Buscar por nome ou nome artístico
             >>> resultado = PessoaService.listar_pessoas(search="João")
 
             >>> # Página específica
@@ -167,20 +168,26 @@ class PessoaService:
         if session is None:
             session = cls._default_session
 
-        # Constrói statement base ordenado por nome
-        stmt = select(Pessoa).order_by(Pessoa.nome)
+        # Constrói statement base com LEFT JOIN para incluir dados do ator
+        stmt = select(Pessoa).outerjoin(Ator, Pessoa.id == Ator.pessoa_id).order_by(Pessoa.nome)
 
         # Aplica filtro de busca se fornecido
+        # Busca tanto em Pessoa.nome quanto em Ator.nome_artistico
         if search and search.strip():
             search_term = f"%{search.strip()}%"
-            stmt = stmt.where(Pessoa.nome.ilike(search_term))
+            stmt = stmt.where(
+                    or_(
+                            Pessoa.nome.ilike(search_term),
+                            Ator.nome_artistico.ilike(search_term)
+                    )
+            )
 
         # Aplica paginação usando db.paginate com statement
         return db.paginate(
-            stmt,
-            page=page,
-            per_page=per_page,
-            error_out=False
+                stmt,
+                page=page,
+                per_page=per_page,
+                error_out=False
         )
 
     @classmethod
@@ -212,23 +219,24 @@ class PessoaService:
         try:
             # Cria nova instância de Pessoa
             pessoa = Pessoa(
-                nome=form_data.nome.data,
-                data_nascimento=form_data.data_nascimento.data,
-                data_falecimento=form_data.data_falecimento.data,
-                local_nascimento=form_data.local_nascimento.data,
-                biografia=form_data.biografia.data
+                    nome=form_data.nome.data,
+                    data_nascimento=form_data.data_nascimento.data,
+                    data_falecimento=form_data.data_falecimento.data,
+                    local_nascimento=form_data.local_nascimento.data,
+                    biografia=form_data.biografia.data
             )
 
             # Processa foto se fornecida
             # Verifica se há um arquivo de foto sendo enviado
-            if form_data.foto.data and hasattr(form_data.foto.data, 'filename') and form_data.foto.data.filename:
+            if form_data.foto.data and hasattr(form_data.foto.data,
+                                               'filename') and form_data.foto.data.filename:
                 pessoa.foto = form_data.foto.data
 
             # Salva no banco
             session.add(pessoa)
             if auto_commit:
                 session.commit()
-                
+
         except SQLAlchemyError as e:
             session.rollback()
             raise PessoaError(f"Erro de banco de dados ao criar pessoa: {str(e)}") from e
@@ -264,7 +272,7 @@ class PessoaService:
             ...     pessoa_atualizada = PessoaService.atualizar_pessoa(pessoa, form)
         """
         from app.models.pessoa import Ator
-        
+
         if session is None:
             session = cls._default_session
 
@@ -278,7 +286,8 @@ class PessoaService:
 
             # Processa foto se fornecida (substitui a existente)
             # Verifica se há um novo arquivo de foto sendo enviado
-            if form_data.foto.data and hasattr(form_data.foto.data, 'filename') and form_data.foto.data.filename:
+            if form_data.foto.data and hasattr(form_data.foto.data,
+                                               'filename') and form_data.foto.data.filename:
                 pessoa.foto = form_data.foto.data
 
             # Gerencia o registro de Ator baseado no nome_artistico
@@ -286,10 +295,12 @@ class PessoaService:
                 # Obtém o valor do campo, tratando None e string vazia
                 raw_value = form_data.nome_artistico.data
                 from flask import current_app
-                current_app.logger.debug(f"[ATOR] Raw value from form: '{raw_value}' (type: {type(raw_value)})")
+                current_app.logger.debug(
+                        f"[ATOR] Raw value from form: '{raw_value}' (type: {type(raw_value)})")
                 current_app.logger.debug(f"[ATOR] Pessoa has ator: {pessoa.ator is not None}")
                 if pessoa.ator:
-                    current_app.logger.debug(f"[ATOR] Current ator.nome_artistico: '{pessoa.ator.nome_artistico}'")
+                    current_app.logger.debug(
+                            f"[ATOR] Current ator.nome_artistico: '{pessoa.ator.nome_artistico}'")
 
                 # Normaliza o valor: None, string vazia, ou string 'None' -> None
                 if raw_value is None or raw_value == '' or str(raw_value).strip().lower() == 'none':
@@ -303,26 +314,31 @@ class PessoaService:
                     # Se há nome artístico fornecido
                     if pessoa.ator:
                         # Atualiza o nome artístico do ator existente
-                        current_app.logger.debug(f"[ATOR] Updating existing ator ID {pessoa.ator.id}: '{pessoa.ator.nome_artistico}' -> '{nome_artistico}'")
+                        current_app.logger.debug(
+                                f"[ATOR] Updating existing ator ID {pessoa.ator.id}: '"
+                                f"{pessoa.ator.nome_artistico}' -> '{nome_artistico}'")
                         pessoa.ator.nome_artistico = nome_artistico
                         session.add(pessoa.ator)  # Marca explicitamente para update
                     else:
                         # Cria novo registro de Ator
-                        current_app.logger.debug(f"[ATOR] Creating new ator for pessoa ID {pessoa.id} with nome_artistico: '{nome_artistico}'")
+                        current_app.logger.debug(
+                                f"[ATOR] Creating new ator for pessoa ID {pessoa.id} with "
+                                f"nome_artistico: '{nome_artistico}'")
                         novo_ator = Ator(pessoa_id=pessoa.id, nome_artistico=nome_artistico)
                         session.add(novo_ator)
                 else:
                     # Se nome artístico foi removido e pessoa é ator
                     if pessoa.ator:
                         # Remove o nome artístico (mas mantém o registro de Ator se houver atuações)
-                        current_app.logger.debug(f"[ATOR] Removing nome_artistico from ator ID {pessoa.ator.id}")
+                        current_app.logger.debug(
+                                f"[ATOR] Removing nome_artistico from ator ID {pessoa.ator.id}")
                         pessoa.ator.nome_artistico = None
                         session.add(pessoa.ator)  # Marca explicitamente para update
 
             # O AuditMixin automaticamente atualiza updated_at
             if auto_commit:
                 session.commit()
-                
+
         except SQLAlchemyError as e:
             session.rollback()
             raise PessoaError(f"Erro de banco de dados ao atualizar pessoa: {str(e)}") from e
@@ -365,7 +381,7 @@ class PessoaService:
 
         # Verifica relacionamentos existentes
         relacionamentos = {
-            'ator': 1 if pessoa.ator else 0,
+            'ator'            : 1 if pessoa.ator else 0,
             'funcoes_tecnicas': len(pessoa.funcoes_tecnicas)
         }
 
@@ -378,8 +394,9 @@ class PessoaService:
         # Se há relacionamentos, aborta a deleção (requirement 4.3)
         if total_relacionamentos > 0:
             return {
-                'success': False,
-                'message': 'Não é possível deletar esta pessoa pois ela possui relacionamentos com filmes.',
+                'success'        : False,
+                'message'        : 'Não é possível deletar esta pessoa pois ela possui '
+                                   'relacionamentos com filmes.',
                 'relacionamentos': relacionamentos
             }
 
@@ -396,13 +413,14 @@ class PessoaService:
                 raise PessoaError(f"Erro ao deletar pessoa: {str(e)}") from e
 
         return {
-            'success': True,
-            'message': 'Pessoa deletada com sucesso.',
+            'success'        : True,
+            'message'        : 'Pessoa deletada com sucesso.',
             'relacionamentos': relacionamentos
         }
 
     @classmethod
-    def validar_pessoa_unica(cls, nome: str, data_nascimento=None, pessoa_id=None, session=None, auto_commit: bool = True):
+    def validar_pessoa_unica(cls, nome: str, data_nascimento=None, pessoa_id=None, session=None,
+                             auto_commit: bool = True):
         """Valida se uma pessoa é única baseada em nome e data de nascimento.
 
         Verifica se já existe uma pessoa com a mesma combinação de nome e data

@@ -164,7 +164,8 @@ def avaliar_filme(filme_id):
             for error in errors:
                 flash(f"Erro no campo {field}: {error}", category='error')
 
-    return redirect(url_for('filme.random_filme'))
+    # Redireciona para a página de detalhes do mesmo filme
+    return redirect(url_for('filme.detail_filme', filme_id=filme_id))
 
 
 @filme_bp.route('/avaliacao/<uuid:avaliacao_id>/excluir', methods=['POST'])
@@ -178,6 +179,15 @@ def excluir_avaliacao(avaliacao_id):
     Returns:
         flask.Response: Redireciona de volta para a página do filme.
     """
+    # Busca a avaliação antes de excluir para obter o filme_id
+    from app.models.juncoes import Avaliacao
+    try:
+        avaliacao = Avaliacao.get_by_id(avaliacao_id, raise_if_not_found=True)
+        filme_id = avaliacao.filme_id
+    except Avaliacao.RecordNotFoundError:
+        flash("Avaliação não encontrada.", category='error')
+        return redirect(url_for('filme.listar_filmes'))
+
     # Usar o ReviewService para excluir a avaliação
     resultado = ReviewService.excluir_avaliacao(avaliacao_id, current_user)
 
@@ -187,7 +197,8 @@ def excluir_avaliacao(avaliacao_id):
     else:
         flash(resultado.message, category='error')
 
-    return redirect(url_for('filme.random_filme'))
+    # Redireciona para a página de detalhes do mesmo filme
+    return redirect(url_for('filme.detail_filme', filme_id=filme_id))
 
 
 @filme_bp.route('/<uuid:filme_id>/poster', methods=['GET'])
