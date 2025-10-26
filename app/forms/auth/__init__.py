@@ -16,21 +16,37 @@ class RegistrationForm(FlaskForm):
     nome = StringField(
             label="Nome",
             validators=[InputRequired(message="É obrigatório informar um nome para cadastro"),
-                        Length(max=60, message="O nome pode ter até 60 caracteres")])
+                        Length(max=60, message="O nome pode ter até 60 caracteres")],
+            render_kw={
+                'placeholder': 'Digite o seu nome'
+            }
+    )
     email = StringField(
             label="Email",
             validators=[InputRequired(message="É obrigatório informar um email para cadastro"),
                         Email(message="Informe um email válido"),
                         Length(max=180, message="O email pode ter até 180 caracteres"),
-                        UniqueEmail(message="Este email já está cadastrado no sistema")])
+                        UniqueEmail(message="Este email já está cadastrado no sistema")],
+            render_kw={
+                'placeholder': 'Digite o seu melhor email'
+            }
+    )
     password = PasswordField(
             label="Senha",
             validators=[InputRequired(message="É necessário escolher uma senha"),
-                        SenhaComplexa()])
+                        SenhaComplexa()],
+            render_kw={
+                'placeholder': 'Digite uma senha'
+            }
+    )
     password2 = PasswordField(
             label="Confirme a senha",
             validators=[InputRequired(message="É necessário repetir a senha"),
-                        EqualTo('password', message="As senhas não são iguais")])
+                        EqualTo('password', message="As senhas não são iguais")],
+            render_kw={
+                'placeholder': 'Repita a senha'
+            }
+    )
     submit = SubmitField("Criar uma conta no sistema")
 
 
@@ -66,7 +82,11 @@ class AskToResetPasswordForm(FlaskForm):
                                       "definir nova senha"),
                 Email(message="Informe um email válido"),
                 Length(max=180, message="O email pode ter até 180 caracteres")
-            ])
+            ],
+            render_kw={
+                'placeholder': 'Digite o seu email'
+            }
+    )
     submit = SubmitField("Solicitar redefinição de senha")
 
 
@@ -78,11 +98,19 @@ class SetNewPasswordForm(FlaskForm):
     password = PasswordField(
             label="Nova senha",
             validators=[InputRequired(message="É necessário escolher uma senha"),
-                        SenhaComplexa()])
+                        SenhaComplexa()],
+            render_kw={
+                'placeholder': 'Digite uma nova senha'
+            }
+    )
     password2 = PasswordField(
             label="Confirme a senha",
             validators=[InputRequired(message="É necessário repetir a senha"),
-                        EqualTo('password', message="As senhas não são iguais")])
+                        EqualTo('password', message="As senhas não são iguais")],
+            render_kw={
+                'placeholder': 'Repita a nova senha'
+            }
+    )
     submit = SubmitField("Redefinir senha")
 
 
@@ -113,11 +141,19 @@ class ProfileForm(FlaskForm):
             label="Nome",
             validators=[InputRequired(message="É obrigatório informar um nome"),
                         Length(max=60,
-                               message="O nome pode ter até 60 caracteres")])
+                               message="O nome pode ter até 60 caracteres")],
+            render_kw={
+                'placeholder': 'Digite o seu nome'
+            }
+    )
     email = StringField(
             label="Email",
             validators=[CampoImutavel(field_name='email',
-                                      message="Você não pode alterar o email.")])
+                                      message="Você não pode alterar o email.")],
+            render_kw={
+                'placeholder': 'Digite o seu melhor email'
+            }
+    )
 
     usa_2fa = BooleanField(
             label="Ativar o segundo fator de autenticação")
