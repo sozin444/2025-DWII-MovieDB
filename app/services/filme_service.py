@@ -1,18 +1,29 @@
 """Serviço de gerenciamento de filmes.
 
 Este módulo fornece a camada de serviço para operações relacionadas a filmes,
-incluindo cálculo de estatísticas, avaliações, e outras operações de negócio.
+incluindo cálculo de estatísticas, avaliações, operações CRUD e outras operações de negócio.
 
 Classes principais:
     - FilmeService: Serviço principal com métodos para operações de filmes
+    - FilmeReviewStats: Estatísticas de avaliações de filmes
+    - FilmeOperationResult: Resultado das operações CRUD
 """
+import uuid
 from dataclasses import dataclass
+from typing import Optional
 
 from sqlalchemy import desc, func, Integer, select
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.infra.modulos import db
-from app.models.filme import Filme
+from app.models.filme import Filme, Genero
+from app.models.juncoes import FilmeGenero
 from .utils import aplicar_filtro_creditado
+
+
+class FilmeServiceError(Exception):
+    """Exceção customizada para operações do FilmeService."""
+    pass
 
 
 @dataclass
@@ -22,6 +33,15 @@ class FilmeReviewStats:
     total_recomendacoes: int
     percentual_recomendacoes: float
     distribuicao_notas: dict[int, float]  # {nota: percentual}
+
+
+@dataclass
+class FilmeOperationResult:
+    """Objeto de resultado para operações CRUD."""
+    success: bool
+    message: str
+    filme: Optional[Filme] = None
+    errors: Optional[dict] = None
 
 
 class FilmeService:
@@ -74,29 +94,29 @@ class FilmeService:
         # Extrai os valores do resultado
         nota_media = float(resultado.nota_media) if resultado.nota_media is not None else 0.0
         total_avaliacoes = int(
-            resultado.total_avaliacoes) if resultado.total_avaliacoes is not None else 0
+                resultado.total_avaliacoes) if resultado.total_avaliacoes is not None else 0
         total_recomendacoes = int(
-            resultado.total_recomendacoes) if resultado.total_recomendacoes is not None else 0
+                resultado.total_recomendacoes) if resultado.total_recomendacoes is not None else 0
 
         # Calcula percentual de recomendações
         percentual_recomendacoes = (
-                    total_recomendacoes / total_avaliacoes * 100) if total_avaliacoes > 0 else 0.0
+                total_recomendacoes / total_avaliacoes * 100) if total_avaliacoes > 0 else 0.0
 
         # Calcula distribuição de notas (0 a 10)
         distribuicao_notas = {}
         if total_avaliacoes > 0:
             # Query para contar avaliações por nota
             stmt_distribuicao = select(
-                Avaliacao.nota,
-                func.count(Avaliacao.id).label('count')
+                    Avaliacao.nota,
+                    func.count(Avaliacao.id).label('count')
             ).where(Avaliacao.filme_id == filme.id).group_by(Avaliacao.nota)
-            
+
             resultado_distribuicao = session.execute(stmt_distribuicao).all()
-            
+
             # Inicializa todas as notas com 0%
             for nota in range(0, 11):
                 distribuicao_notas[nota] = 0.0
-            
+
             # Calcula percentuais para notas que existem
             for row in resultado_distribuicao:
                 nota = row.nota
@@ -119,7 +139,7 @@ class FilmeService:
                      filme: Filme,
                      creditado: bool = True,
                      nao_creditado: bool = True,
-                     usar_nome_artistico: bool =True,
+                     usar_nome_artistico: bool = True,
                      session=None) -> list:
         """Retorna lista de atores e personagens do filme.
 
@@ -134,7 +154,8 @@ class FilmeService:
         Returns:
             list: Lista de tuplas com estrutura:
                 [
-                    ('Christian Bale', 'Batman', True, 21040b96-4794-41a7-9253-f135743ce482),         # (nome_ator, personagem, creditado, id_ator)
+                    ('Christian Bale', 'Batman', True, 21040b96-4794-41a7-9253-f135743ce482),
+                        # (nome_ator, personagem, creditado, id_ator)
                     ('Christian Bale', 'Bruce Wayne', True, 21040b96-4794-41a7-9253-f135743ce482),
                     ('Debbi Burns', 'Bank Patron', False, 5c3f1e2e-3f4e-4d2a-9f4b-2e5f6c7d8e9f),
                     ...
@@ -179,7 +200,8 @@ class FilmeService:
 
         # Monta a lista de tuplas (nome_ator, personagem, creditado)
         elenco = [
-            (atuacao.ator.nome_artistico if usar_nome_artistico and atuacao.ator.nome_artistico else atuacao.ator.pessoa.nome,
+            (atuacao.ator.nome_artistico if usar_nome_artistico and atuacao.ator.nome_artistico
+             else atuacao.ator.pessoa.nome,
              atuacao.personagem,
              atuacao.creditado,
              atuacao.ator.pessoa.id)
@@ -208,7 +230,8 @@ class FilmeService:
         Returns:
             list: Lista de tuplas com estrutura:
                 [
-                    ('Diretor', 'Christopher Nolan', True, d3ebd0ba-f5e9-412f-8f4a-4c21e1cd5ff1),    # (nome_funcao, nome_pessoa, creditado, id_pessoa)
+                    ('Diretor', 'Christopher Nolan', True, d3ebd0ba-f5e9-412f-8f4a-4c21e1cd5ff1),
+                       # (nome_funcao, nome_pessoa, creditado, id_pessoa)
                     ('Produtor', 'Emma Thomas', True, 7a1c2e3d-8f4b-4c5d-9e6f-1a2b3c4d5e6f),
                     ('Roteirista', 'Christopher Nolan', True, d3ebd0ba-f5e9-412f-8f4a-4c21e1cd5ff1),
                     ...
@@ -268,3 +291,297 @@ class FilmeService:
         ]
 
         return equipe
+
+    @classmethod
+    def _aplicar_atributos_basicos_filme(cls, filme: Filme, form_data: dict) -> None:
+        """Aplica atributos básicos do formulário ao filme (antes do flush).
+
+        Args:
+            filme: Instância do filme a ser atualizada
+            form_data: Dicionário contendo dados do formulário
+
+        Note:
+            Este método deve ser chamado ANTES do flush para validação.
+            Não inclui associações de gêneros (que requerem ID do filme).
+        """
+        # Atualiza os atributos básicos
+        filme.titulo_original = form_data.get('titulo_original')
+        filme.titulo_portugues = form_data.get('titulo_portugues')
+        filme.ano_lancamento = form_data.get('ano_lancamento')
+        filme.lancado = form_data.get('lancado', False)
+        filme.duracao_minutos = form_data.get('duracao_minutos')
+        filme.sinopse = form_data.get('sinopse')
+        filme.orcamento_milhares = form_data.get('orcamento_milhares')
+        filme.faturamento_lancamento_milhares = form_data.get('faturamento_lancamento_milhares')
+        filme.trailer_youtube = form_data.get('trailer_youtube')
+
+        # Manipula o upload do poster se fornecido
+        poster_file = form_data.get('poster')
+        if poster_file:
+            filme.poster = poster_file
+
+    @classmethod
+    def _aplicar_generos_filme(cls, filme: Filme, form_data: dict, session) -> None:
+        """Aplica associações de gêneros ao filme (após o flush).
+
+        Args:
+            filme: Instância do filme (deve ter ID)
+            form_data: Dicionário contendo dados do formulário
+            session: Sessão SQLAlchemy
+
+        Note:
+            Este metodo deve ser chamado APÓS o flush, pois requer o ID do filme.
+        """
+        # Manipula as associações de gêneros
+        genero_ids = form_data.get('generos_selecionados', [])
+        if genero_ids:
+            cls.update_filme_generos(filme, genero_ids, session)
+
+    @classmethod
+    def create_filme(cls,
+                     form_data: dict,
+                     session=None,
+                     auto_commit: bool = True) -> FilmeOperationResult:
+        """Cria um novo filme com tratamento de transação.
+
+        Args:
+            form_data: Dicionário contendo dados do filme do formulário
+            session: Sessão SQLAlchemy opcional
+            auto_commit: Se deve fazer auto-commit da transação
+
+        Returns:
+            FilmeOperationResult: Resultado da operação
+
+        Raises:
+            FilmeServiceError: Quando a operação falha
+        """
+        if session is None:
+            session = cls._default_session
+
+        try:
+            # Cria uma nova instância de Filme
+            filme = Filme()
+
+            # Aplica atributos básicos ANTES do flush (para validação)
+            cls._aplicar_atributos_basicos_filme(filme, form_data)
+
+            # Adiciona o filme à sessão e faz flush para obter ID
+            session.add(filme)
+            session.flush()  # Obtém o ID para as associações de gêneros
+
+            # Aplica gêneros APÓS o flush (requer ID do filme)
+            cls._aplicar_generos_filme(filme, form_data, session)
+
+            if auto_commit:
+                session.commit()
+
+            return FilmeOperationResult(
+                    success=True,
+                    message="Filme criado com sucesso",
+                    filme=filme
+            )
+
+        except SQLAlchemyError as e:
+            session.rollback()
+            raise FilmeServiceError(
+                f"Database error in {cls.__name__}.create_filme: {str(e)}") from e
+        except Exception as e:
+            session.rollback()
+            raise FilmeServiceError(
+                f"Unexpected error in {cls.__name__}.create_filme: {str(e)}") from e
+
+    @classmethod
+    def update_filme(cls,
+                     filme_id: uuid.UUID,
+                     form_data: dict,
+                     session=None,
+                     auto_commit: bool = True) -> FilmeOperationResult:
+        """Atualiza um filme existente com validação de registro existente.
+
+        Args:
+            filme_id: UUID do filme a ser atualizado
+            form_data: Dicionário contendo dados atualizados do filme do formulário
+            session: Sessão SQLAlchemy opcional
+            auto_commit: Se deve fazer auto-commit da transação
+
+        Returns:
+            FilmeOperationResult: Resultado da operação
+
+        Raises:
+            FilmeServiceError: Quando a operação falha
+        """
+        if session is None:
+            session = cls._default_session
+
+        try:
+            # Obtém o filme existente
+            try:
+                filme = Filme.get_by_id(filme_id,
+                                        raise_if_not_found=True)
+            except Filme.RecordNotFoundError:
+                return FilmeOperationResult(
+                        success=False,
+                        message="Filme não encontrado",
+                        errors={'filme_id': 'Filme não existe'}
+                )
+
+            # Aplica atributos básicos
+            cls._aplicar_atributos_basicos_filme(filme, form_data)
+
+            # Aplica gêneros (filme já tem ID)
+            cls._aplicar_generos_filme(filme, form_data, session)
+
+            if auto_commit:
+                session.commit()
+
+            return FilmeOperationResult(
+                    success=True,
+                    message="Filme atualizado com sucesso",
+                    filme=filme
+            )
+
+        except SQLAlchemyError as e:
+            session.rollback()
+            raise FilmeServiceError(
+                f"Database error in {cls.__name__}.update_filme: {str(e)}") from e
+        except Exception as e:
+            session.rollback()
+            raise FilmeServiceError(
+                f"Unexpected error in {cls.__name__}.update_filme: {str(e)}") from e
+
+    @classmethod
+    def delete_filme(cls,
+                     filme_id: uuid.UUID,
+                     session=None,
+                     auto_commit: bool = True) -> FilmeOperationResult:
+        """Exclui um filme com limpeza de relacionamentos.
+
+        Args:
+            filme_id: UUID do filme a ser excluído
+            session: Sessão SQLAlchemy opcional
+            auto_commit: Se deve fazer auto-commit da transação
+
+        Returns:
+            FilmeOperationResult: Resultado da operação
+
+        Raises:
+            FilmeServiceError: Quando a operação falha
+        """
+        if session is None:
+            session = cls._default_session
+
+        try:
+            # Obtém o filme existente
+            try:
+                filme = Filme.get_by_id(filme_id,
+                                        raise_if_not_found=True)
+            except Filme.RecordNotFoundError:
+                return FilmeOperationResult(
+                        success=False,
+                        message="Filme não encontrado",
+                        errors={'filme_id': 'Filme não existe'}
+                )
+
+            filme_title = filme.titulo_original
+
+            # Remove o filme da sessão (cascata deve cuidar dos relacionamentos)
+            session.delete(filme)
+
+            if auto_commit:
+                session.commit()
+
+            return FilmeOperationResult(
+                    success=True,
+                    message=f"Filme '{filme_title}' excluído com sucesso"
+            )
+
+        except SQLAlchemyError as e:
+            session.rollback()
+            raise FilmeServiceError(
+                f"Database error in {cls.__name__}.delete_filme: {str(e)}") from e
+        except Exception as e:
+            session.rollback()
+            raise FilmeServiceError(
+                f"Unexpected error in {cls.__name__}.delete_filme: {str(e)}") from e
+
+    @classmethod
+    def obter_genero_ids(cls,
+                         filme: Filme,
+                         session=None) -> list[str]:
+        """Retorna lista de IDs de gêneros associados ao filme.
+
+        Args:
+            filme: Instância do filme para obter os gêneros
+            session: Sessão SQLAlchemy opcional. Se None, usa a sessão padrão da classe.
+
+        Returns:
+            list[str]: Lista de IDs de gêneros convertidos para string (UUID)
+
+        Raises:
+            FilmeServiceError: Quando ocorre erro na operação
+        """
+        if session is None:
+            session = cls._default_session
+
+        try:
+            stmt = select(FilmeGenero.genero_id).where(FilmeGenero.filme_id == filme.id)
+            genero_ids = [str(genero_id) for genero_id in session.execute(stmt).scalars().all()]
+            return genero_ids
+
+        except SQLAlchemyError as e:
+            raise FilmeServiceError(
+                f"Database error in {cls.__name__}.obter_genero_ids: {str(e)}") from e
+        except Exception as e:
+            raise FilmeServiceError(
+                f"Unexpected error in {cls.__name__}.obter_genero_ids: {str(e)}") from e
+
+    @classmethod
+    def update_filme_generos(cls,
+                             filme: Filme,
+                             genero_ids: list[uuid.UUID | str],
+                             session=None):
+        """Gerencia as associações de gêneros de um filme.
+
+        Args:
+            filme: Instância do filme para atualizar os gêneros
+            genero_ids: Lista de UUIDs de gêneros (como UUID ou string) para associar ao filme
+            session: Sessão SQLAlchemy opcional. Se None, usa a sessão padrão da classe.
+
+        Raises:
+            FilmeServiceError: Quando ocorre erro na operação
+        """
+        if session is None:
+            session = cls._default_session
+
+        try:
+            # Remove associações de gêneros existentes
+            stmt = select(FilmeGenero).where(FilmeGenero.filme_id == filme.id)
+            existing_associations = session.execute(stmt).scalars().all()
+            for association in existing_associations:
+                session.delete(association)
+
+            # Adiciona novas associações de gêneros
+            for genero_id in genero_ids:
+                # Converte string para UUID se necessário
+                if isinstance(genero_id, str):
+                    try:
+                        genero_id = uuid.UUID(genero_id)
+                    except ValueError:
+                        continue  # Skip invalid UUID strings
+
+                # Verifica se o gênero existe antes de associar
+                try:
+                    genero = Genero.get_by_id(genero_id,
+                                              raise_if_not_found=True)
+                except Genero.RecordNotFoundError:
+                    pass  # Pula o gênero inválido
+                else:
+                    filme_genero = FilmeGenero(filme_id=filme.id, genero_id=genero_id)
+                    session.add(filme_genero)
+
+        except SQLAlchemyError as e:
+            raise FilmeServiceError(
+                f"Database error in {cls.__name__}.update_filme_generos: {str(e)}") from e
+        except Exception as e:
+            raise FilmeServiceError(
+                f"Unexpected error in {cls.__name__}.update_filme_generos: {str(e)}") from e

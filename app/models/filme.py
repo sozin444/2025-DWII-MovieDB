@@ -36,19 +36,23 @@ class Filme(db.Model, BasicRepositoryMixin, AuditMixin):
 
     # Relacionamentos: um filme pode ter vários gêneros (via tabela de associação)
     filme_generos: Mapped[list["FilmeGenero"]] = relationship(back_populates="filme",
-                                                              cascade="all, delete-orphan")
+                                                              cascade="all, delete-orphan",
+                                                              passive_deletes=True)
     generos: Mapped[list["Genero"]] = relationship(secondary="filmes_generos",
                                                    back_populates="filmes",
                                                    overlaps="filme_generos")
 
     elenco: Mapped[list["Atuacao"]] = relationship(back_populates="filme",
-                                                   cascade="all, delete-orphan")
+                                                   cascade="all, delete-orphan",
+                                                   passive_deletes=True)
     equipe_tecnica: Mapped[list["EquipeTecnica"]] = relationship(back_populates="filme",
-                                                                 cascade="all, delete-orphan")
+                                                                 cascade="all, delete-orphan",
+                                                                 passive_deletes=True)
 
     # Relacionamento: um filme pode ser avaliado por vários usuários
     avaliacoes: Mapped[list["Avaliacao"]] = relationship(back_populates="filme",
-                                                         cascade="all, delete-orphan")
+                                                         cascade="all, delete-orphan",
+                                                         passive_deletes=True)
 
     @property
     def duracao_formatada(self) -> str:
@@ -91,7 +95,7 @@ class Filme(db.Model, BasicRepositoryMixin, AuditMixin):
         """Setter para poster.
 
         Atualiza os campos relacionados ao poster. Se o valor for None, remove o
-        psoter e limpa os campos associados. Caso contrário, tenta armazenar
+        poster e limpa os campos associados. Caso contrário, tenta armazenar
         o poster em base64 e o tipo MIME.
 
         IMPORTANTE: Este setter NÃO realiza commit. O chamador é responsável por
@@ -108,7 +112,9 @@ class Filme(db.Model, BasicRepositoryMixin, AuditMixin):
             self._clear_poster_fields()
         else:
             try:
-                resultado = ImageProcessingService.processar_upload_foto(value)
+                # Poster vai ser cortado para 2:3
+                resultado = ImageProcessingService.processar_upload_imagem(value,
+                                                                           crop_aspect_ratio=True)
             except (ImageProcessingError, ValueError):
                 self._clear_poster_fields()
                 raise

@@ -18,8 +18,8 @@ class FilmeGenero(db.Model, BasicRepositoryMixin, AuditMixin):
     __table_args__ = (UniqueConstraint('filme_id', 'genero_id', name='uq_filme_genero'),)
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    filme_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('filmes.id'))
-    genero_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('generos.id'))
+    filme_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('filmes.id', ondelete='CASCADE', name='fk_filme_genero_filme'))
+    genero_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('generos.id', ondelete='CASCADE', name='fk_filme_genero_genero'))
     primario: Mapped[bool] = mapped_column(default=False, server_default='false')
 
     filme: Mapped["Filme"] = relationship(back_populates="filme_generos",
@@ -34,8 +34,8 @@ class Atuacao(db.Model, BasicRepositoryMixin, AuditMixin):
         UniqueConstraint('filme_id', 'ator_id', 'personagem', name='uq_filme_ator_personagem'),)
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    filme_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('filmes.id'))
-    ator_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('atores.id'))
+    filme_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('filmes.id', ondelete='CASCADE', name='fk_atuacao_filme'))
+    ator_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('atores.id', ondelete='CASCADE', name='fk_atuacao_ator'))
     personagem: Mapped[str] = mapped_column(String(100))
     protagonista: Mapped[bool] = mapped_column(default=False, server_default='false')
     creditado: Mapped[bool] = mapped_column(default=True, server_default='true')
@@ -51,9 +51,9 @@ class EquipeTecnica(db.Model, BasicRepositoryMixin, AuditMixin):
                                        name='uq_filme_pessoa_funcao'),)
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    filme_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('filmes.id'))
-    pessoa_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('pessoas.id'))
-    funcao_tecnica_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('funcoes_tecnicas.id'))
+    filme_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('filmes.id', ondelete='CASCADE', name='fk_equipe_tecnica_filme'))
+    pessoa_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('pessoas.id', ondelete='CASCADE', name='fk_equipe_tecnica_pessoa'))
+    funcao_tecnica_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('funcoes_tecnicas.id', ondelete='CASCADE', name='fk_equipe_tecnica_funcao'))
     creditado: Mapped[bool] = mapped_column(default=True, server_default='true')
 
     filme: Mapped["Filme"] = relationship(back_populates="equipe_tecnica")
@@ -70,8 +70,8 @@ class Avaliacao(db.Model, BasicRepositoryMixin, AuditMixin):
     __table_args__ = (UniqueConstraint('filme_id', 'usuario_id', name='uq_filme_usuario'),)
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    filme_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('filmes.id'))
-    usuario_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('usuarios.id'))
+    filme_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('filmes.id', ondelete='CASCADE', name='fk_avaliacao_filme'))
+    usuario_id: Mapped[uuid.UUID] = mapped_column(ForeignKey('usuarios.id', ondelete='CASCADE', name='fk_avaliacao_usuario'))
     nota: Mapped[int] = mapped_column()
     comentario: Mapped[Optional[str]] = mapped_column(Text, default=None)
     recomendaria: Mapped[bool] = mapped_column(default=False, server_default='false')

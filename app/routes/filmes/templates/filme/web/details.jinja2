@@ -3,6 +3,18 @@
 {% block content %}
     <div class="d-flex flex-column min-vh-100 justify-content-center align-items-center p-5">
         <div style="max-width: 800px; width: 100%;">
+            <!-- Navigation -->
+            <div class="mb-3 d-flex justify-content-between align-items-center">
+                <a href="{{ url_for('filme.listar_filmes') }}" class="btn btn-outline-secondary btn-sm">
+                    {{ render_icon('arrow-left') }} Voltar para Lista de Filmes
+                </a>
+                {% if current_user.is_authenticated %}
+                    <a href="{{ url_for('filme.create_filme') }}" class="btn btn-outline-primary btn-sm">
+                        {{ render_icon('plus-circle') }} Criar Novo Filme
+                    </a>
+                {% endif %}
+            </div>
+            
             <div class="card">
                 <div class="card-header">
                     <div class="row align-items-start g-0" style="margin: 0;">
@@ -16,6 +28,23 @@
                         <div class="col-md-8 ps-3">
                             <!-- Header do filme -->
                             {% include 'filme/web/_header_filme.jinja2' %}
+                            
+                            <!-- Action buttons for authenticated users -->
+                            {% if current_user.is_authenticated %}
+                                <div class="mb-3">
+                                    <div class="btn-group" role="group">
+                                        <a href="{{ url_for('filme.edit_filme', filme_id=filme.id) }}" 
+                                           class="btn btn-outline-warning btn-sm">
+                                            {{ render_icon('pencil-square') }} Editar Filme
+                                        </a>
+                                        <a href="{{ url_for('filme.delete_filme', filme_id=filme.id) }}" 
+                                           class="btn btn-outline-danger btn-sm">
+                                            {{ render_icon('trash') }} Excluir Filme
+                                        </a>
+                                    </div>
+                                </div>
+                            {% endif %}
+                            
                             <!-- Sinopse -->
                             {% if filme.sinopse %}
                                 <p class="mb-3">{{ filme.sinopse }}</p>

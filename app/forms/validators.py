@@ -290,3 +290,76 @@ class ValidadorDataDepoisDe:
         
         if field.data <= ref_date:
             raise ValidationError(self.message)
+
+
+class YouTubeURLValidator:
+    """
+    Validador customizado para validação de formato de URL do YouTube.
+
+    Valida que a URL é uma URL válida de vídeo do YouTube em vários formatos:
+    - https://www.youtube.com/watch?v=VIDEO_ID
+    - https://youtu.be/VIDEO_ID
+    - http://www.youtube.com/watch?v=VIDEO_ID
+    """
+
+    def __init__(self, message: Optional[str] = None):
+        self.message = message or "URL do YouTube inválida"
+
+    def __call__(self, form, field):
+        if not field.data:
+            return  # Campo vazio é válido (use OptionalValidator se necessário)
+        
+        # YouTube URL patterns
+        youtube_patterns = [
+            r'^https?://(?:www\.)?youtube\.com/watch\?v=([a-zA-Z0-9_-]{11})(?:&.*)?$',
+            r'^https?://youtu\.be/([a-zA-Z0-9_-]{11})(?:\?.*)?$',
+            r'^https?://(?:www\.)?youtube\.com/embed/([a-zA-Z0-9_-]{11})(?:\?.*)?$'
+        ]
+        
+        url = field.data.strip()
+        is_valid = any(re.match(pattern, url) for pattern in youtube_patterns)
+        
+        if not is_valid:
+            raise ValidationError(self.message)
+
+
+class YearRangeValidator:
+    """
+    Validador customizado para validação de intervalo de ano.
+
+    Valida que o ano está entre 1800 e ano atual + 10.
+    """
+
+    def __init__(self, message: Optional[str] = None):
+        self.message = message or "Ano deve estar entre 1800 e {max_year}"
+
+    def __call__(self, form, field):
+        if not field.data:
+            return  # Campo vazio é válido
+        
+        from datetime import datetime
+        current_year = datetime.now().year
+        min_year = 1800
+        max_year = current_year + 10
+        
+        if not (min_year <= field.data <= max_year):
+            raise ValidationError(self.message.format(max_year=max_year))
+
+
+class PositiveDecimalValidator:
+    """Validador customizado para valores decimais positivos."""
+
+    def __init__(self, message: Optional[str] = None):
+        self.message = message or "Valor deve ser positivo"
+
+    def __call__(self, form, field):
+        if not field.data:
+            return  # Campo vazio é válido
+        
+        from decimal import Decimal, InvalidOperation
+        try:
+            value = Decimal(str(field.data))
+            if value < 0:
+                raise ValidationError(self.message)
+        except (InvalidOperation, ValueError):
+            raise ValidationError("Valor numérico inválido")

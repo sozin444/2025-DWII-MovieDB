@@ -1,11 +1,14 @@
+from logging import exception
+
 from flask import abort, Blueprint, flash, redirect, render_template, request, url_for
 from flask_login import current_user, login_required
 from sqlalchemy import func, select
+import json
 
-from app.forms.filmes import AvaliacaoForm
+from app.forms.filmes import AvaliacaoForm, FilmeCrudForm, FilmeDeleteForm
 from app.infra.modulos import db
 from app.models.filme import Filme
-from app.services.filme_service import FilmeService
+from app.services.filme_service import FilmeService, FilmeServiceError
 from app.services.imageprocessing_service import ImageProcessingService
 from app.services.review_service import ReviewOperationResult, ReviewService
 
@@ -13,6 +16,63 @@ filme_bp = Blueprint(name='filme',
                      import_name=__name__,
                      url_prefix='/filme',
                      template_folder="templates", )
+
+
+# Funções auxiliares para operações CRUD de filmes
+
+def _preparar_form_data_filme(form: FilmeCrudForm) -> dict:
+    """Extrai e prepara dados do formulário de filme para o serviço.
+
+    Args:
+        form: Formulário de filme validado
+
+    Returns:
+        dict: Dicionário com dados do filme prontos para o serviço
+    """
+    form_data = {
+        'titulo_original': form.titulo_original.data,
+        'titulo_portugues': form.titulo_portugues.data,
+        'ano_lancamento': form.ano_lancamento.data,
+        'lancado': form.lancado.data,
+        'duracao_minutos': form.duracao_minutos.data,
+        'sinopse': form.sinopse.data,
+        'orcamento_milhares': form.orcamento_milhares.data,
+        'faturamento_lancamento_milhares': form.faturamento_lancamento_milhares.data,
+        'trailer_youtube': form.trailer_youtube.data,
+        'poster': form.poster.data,
+        'generos_selecionados': []
+    }
+
+    # Processar IDs de gêneros do campo oculto
+    try:
+        genero_ids_str = form.generos_selecionados.data or '[]'
+        genero_ids = json.loads(genero_ids_str)
+        form_data['generos_selecionados'] = genero_ids
+    except (json.JSONDecodeError, TypeError):
+        form_data['generos_selecionados'] = []
+
+    return form_data
+
+
+def _processar_resultado_filme(result: 'FilmeOperationResult', success_url: str):
+    """Processa resultado da operação de filme e exibe mensagens apropriadas.
+
+    Args:
+        result: Resultado da operação do FilmeService
+        success_url: URL para redirecionamento em caso de sucesso
+
+    Returns:
+        flask.Response: Redirecionamento para a URL apropriada
+    """
+    if result.success:
+        flash(result.message, category='success')
+        return redirect(success_url)
+    else:
+        flash(result.message, category='error')
+        if result.errors:
+            for field, errors in result.errors.items():
+                flash(f"Erro no campo {field}: {errors}", category='error')
+        return None
 
 
 @filme_bp.route('/random', methods=['GET'])
@@ -68,10 +128,12 @@ def avaliar_filme(filme_id):
     Returns:
         flask.Response: Redireciona de volta para a página do filme.
     """
-    filme = Filme.get_by_id(filme_id)
-    if not filme:
+    try:
+        filme = Filme.get_by_id(filme_id,
+                                raise_if_not_found=True)
+    except Filme.RecordNotFoundError:
         flash("Filme não encontrado.", category='error')
-        return redirect(url_for('filme.random_filme'))
+        abort(404)
 
     form = AvaliacaoForm()
 
@@ -138,17 +200,18 @@ def filme_poster(filme_id):
     Returns:
         flask.Response: Imagem do poster ou placeholder.
     """
-    filme = Filme.get_by_id(filme_id)
-
-    if filme:
-        poster_data, mime_type = filme.poster
-        return ImageProcessingService.servir_imagem(poster_data, mime_type)
-    else:
-        # Usuário não encontrado - retorna placeholder
-        placeholder_data = ImageProcessingService.gerar_placeholder(300, 400,
+    try:
+        filme = Filme.get_by_id(filme_id,
+                                raise_if_not_found=True)
+    except Filme.RecordNotFoundError:
+        # Filme não encontrado - retorna placeholder
+        poster_data = ImageProcessingService.gerar_placeholder(300, 400,
                                                                     "Filme\nnão encontrado",
                                                                     36)
-        return ImageProcessingService.servir_imagem(placeholder_data, 'image/png')
+        mime_type = 'image/png'
+    else:
+        poster_data, mime_type = filme.poster
+    return ImageProcessingService.servir_imagem(poster_data, mime_type)
 
 
 @filme_bp.route('/<uuid:filme_id>/detail', methods=['GET'])
@@ -158,10 +221,10 @@ def detail_filme(filme_id):
     Returns:
         Template renderizado com o filme
     """
-
-    filme = Filme.get_by_id(filme_id)
-
-    if not filme:
+    try:
+        filme = Filme.get_by_id(filme_id,
+                                raise_if_not_found=True)
+    except Filme.RecordNotFoundError:
         abort(404)
 
     # Retorna apenas os dados do Filme, sem dados relacionados (joined)
@@ -224,3 +287,179 @@ def listar_filmes():
     return render_template('filme/web/lista.jinja2',
                            title="Lista de Filmes",
                            filmes_com_stats=filmes_com_stats)
+
+
+@filme_bp.route('/create', methods=['GET', 'POST'])
+@login_required
+def create_filme():
+    """Trata requisição GET para exibir formulário de criação e POST para processar submissão.
+
+    Returns:
+        flask.Response: Template renderizado para GET ou redirecionamento para POST bem-sucedido
+    """
+    form = FilmeCrudForm()
+
+    if request.method == 'POST':
+        # Cuida do botão de cancelamento
+        if form.cancel.data:
+            return redirect(url_for('filme.listar_filmes'))
+
+        if form.validate_on_submit():
+            try:
+                # Preparar dados do formulário usando função auxiliar
+                form_data = _preparar_form_data_filme(form)
+
+                # Criar filme usando o serviço
+                result = FilmeService.create_filme(form_data)
+
+                # Processar resultado usando função auxiliar
+                response = _processar_resultado_filme(
+                    result,
+                    url_for('filme.detail_filme', filme_id=result.filme.id) if result.success else None
+                )
+                if response:
+                    return response
+
+            except FilmeServiceError as e:
+                flash(f"Erro ao criar filme: {str(e)}", category='error')
+            except Exception as e:
+                flash("Erro interno do sistema. Tente novamente.", category='error')
+        else:
+            # Mostrar erros de validação do formulário
+            for field, errors in form.errors.items():
+                for error in errors:
+                    flash(f"Erro no campo {field}: {error}", category='error')
+
+    return render_template('filme/web/create.jinja2',
+                           title="Criar Novo Filme",
+                           form=form)
+
+
+@filme_bp.route('/<uuid:filme_id>/edit', methods=['GET', 'POST'])
+@login_required
+def edit_filme(filme_id):
+    """Trata requisição GET para exibir formulário pré-populado de edição e POST para processar atualizações.
+
+    Args:
+        filme_id (uuid.UUID): ID do filme a ser editado
+
+    Returns:
+        flask.Response: Template renderizado para GET ou redirecionamento para POST bem-sucedido
+    """
+    # Verificar existência do filme e tratar casos 404
+    try:
+        filme = Filme.get_by_id(filme_id,
+                                raise_if_not_found=True)
+    except Filme.RecordNotFoundError:
+        flash("Filme não encontrado.", category='error')
+        abort(404)
+
+    form = FilmeCrudForm(obj=filme)
+
+    if request.method == 'GET':
+        # Pre-popula os campos do formulário
+        form.titulo_original.data = filme.titulo_original
+        form.titulo_portugues.data = filme.titulo_portugues
+        form.ano_lancamento.data = filme.ano_lancamento
+        form.lancado.data = filme.lancado
+        form.duracao_minutos.data = filme.duracao_minutos
+        form.sinopse.data = filme.sinopse
+        form.orcamento_milhares.data = filme.orcamento_milhares
+        form.faturamento_lancamento_milhares.data = filme.faturamento_lancamento_milhares
+        form.trailer_youtube.data = filme.trailer_youtube
+
+        # Pre-popula seleção de gêneros
+        genero_ids = FilmeService.obter_genero_ids(filme)
+        form.generos_selecionados.data = json.dumps(genero_ids)
+
+    elif request.method == 'POST':
+        # Cuida do botão de cancelamento
+        if form.cancel.data:
+            return redirect(url_for('filme.detail_filme', filme_id=filme_id))
+
+        if form.validate_on_submit():
+            try:
+                # Preparar dados do formulário usando função auxiliar
+                form_data = _preparar_form_data_filme(form)
+
+                # Atualizar filme usando o serviço
+                result = FilmeService.update_filme(filme_id, form_data)
+
+                # Processar resultado usando função auxiliar
+                response = _processar_resultado_filme(
+                    result,
+                    url_for('filme.detail_filme', filme_id=filme_id)
+                )
+                if response:
+                    return response
+
+            except FilmeServiceError as e:
+                flash(f"Erro ao atualizar filme: {str(e)}", category='error')
+            except Exception as e:
+                flash("Erro interno do sistema. Tente novamente.", category='error')
+        else:
+            # Mostrar erros de validação do formulário
+            for field, errors in form.errors.items():
+                for error in errors:
+                    flash(f"Erro no campo {field}: {error}", category='error')
+
+    return render_template('filme/web/edit.jinja2',
+                           title=f"Editar '{filme.titulo_original}'",
+                           form=form,
+                           filme=filme)
+
+
+@filme_bp.route('/<uuid:filme_id>/delete', methods=['GET', 'POST'])
+@login_required
+def delete_filme(filme_id):
+    """Trata requisição GET para exibir confirmação de exclusão e POST para processar a exclusão.
+
+    Args:
+        filme_id (uuid.UUID): ID do filme a ser excluído
+
+    Returns:
+        flask.Response: Template renderizado para GET ou redirecionamento para POST bem-sucedido
+    """
+    # Validate filme existence and handle 404 cases
+    try:
+        filme = Filme.get_by_id(filme_id,
+                                raise_if_not_found=True)
+    except Filme.RecordNotFoundError:
+        flash("Filme não encontrado.", category='error')
+        abort(404)
+
+    form = FilmeDeleteForm(obj=filme)
+
+    if request.method == 'POST':
+        # Handle cancel button
+        if form.cancel.data:
+            return redirect(url_for('filme.detail_filme', filme_id=filme_id))
+
+        if form.validate_on_submit():
+            try:
+                # Delete filme using service
+                result = FilmeService.delete_filme(filme_id)
+
+                if result.success:
+                    flash(result.message, category='success')
+                    return redirect(url_for('filme.listar_filmes'))
+                else:
+                    flash(result.message, category='error')
+                    if result.errors:
+                        for field, errors in result.errors.items():
+                            flash(f"Erro no campo {field}: {errors}", category='error')
+
+            except FilmeServiceError as e:
+                flash(f"Erro ao excluir filme: {str(e)}", category='error')
+            except Exception as e:
+                flash("Erro interno do sistema. Tente novamente.", category='error')
+        else:
+            # Show form validation errors
+            for field, errors in form.errors.items():
+                for error in errors:
+                    flash(f"Erro no campo {field}: {error}", category='error')
+
+    return render_template('filme/web/delete.jinja2',
+                           title=f"Excluir '{filme.titulo_original}'",
+                           form=form,
+                           filme=filme)
