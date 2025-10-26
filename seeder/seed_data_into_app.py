@@ -1,15 +1,15 @@
 import base64
 import json
 import os
-import traceback
+
 import sys
+import traceback
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
 import requests
 from flask import current_app
-from flask_migrate import current
 
 # Adicionar o diretório raiz do projeto ao Python path
 project_root = Path(__file__).parent.parent
@@ -19,7 +19,7 @@ from app import create_app
 from app.infra.modulos import db
 from app.models.filme import Filme, Genero, FuncaoTecnica
 from app.models.pessoa import Pessoa, Ator
-from app.models.juncoes import EquipeTecnica, FilmeGenero, Atuacao
+from app.models.juncoes import EquipeTecnica, Atuacao
 
 # Configurações da API do TMDB
 TMDB_API_BASE = "https://api.themoviedb.org/3"
@@ -41,9 +41,9 @@ class TMDBImageFetcher:
         self.session = requests.Session()
         self.session.params = {"api_key": self.api_key}
 
-
     @staticmethod
-    def download_and_cache_image_as_base64(image_path: str, use_large: bool = False) -> Optional[tuple[str, str]]:
+    def download_and_cache_image_as_base64(image_path: str, use_large: bool = False) -> Optional[
+        tuple[str, str]]:
         """
         Baixa uma imagem do TMDB e converte para base64, com cache local
 
@@ -61,36 +61,36 @@ class TMDBImageFetcher:
             # Criar diretório de cache se não existir
             cache_dir = Path("seeder/images")
             cache_dir.mkdir(exist_ok=True)
-            
+
             # Nome do arquivo local (remover a barra inicial do image_path)
             filename = image_path.lstrip('/')
             local_file = cache_dir / filename
-            
+
             # Verificar se já existe localmente
             if local_file.exists():
                 print(f"  📁 Usando imagem em cache: {filename}")
                 with local_file.open('rb') as f:
                     image_data = f.read()
                 image_base64 = base64.b64encode(image_data).decode('utf-8')
-                
+
                 mime_type = "image/jpeg"
                 if image_path.lower().endswith('.png'):
                     mime_type = "image/png"
-                
+
                 return mime_type, image_base64
-            
+
             # Baixar da internet se não existir localmente
             base_url = TMDB_IMAGE_BASE_LARGE if use_large else TMDB_IMAGE_BASE
             image_url = f"{base_url}{image_path}"
-            
+
             print(f"  🌐 Baixando imagem: {filename}")
             response = requests.get(image_url, timeout=10)
             response.raise_for_status()
-            
+
             # Salvar localmente
             with local_file.open('wb') as f:
                 f.write(response.content)
-            
+
             # Converter para base64
             image_base64 = base64.b64encode(response.content).decode('utf-8')
 
@@ -136,9 +136,9 @@ def criar_generos(source_file: Path) -> Optional[dict[str, Genero]]:
                 if line in generos_completos:
                     genero_data = generos_completos[line]
                     genero = Genero(
-                        nome=line,
-                        descricao=genero_data.get("descricao"),
-                        ativo=genero_data.get("ativo", True)
+                            nome=line,
+                            descricao=genero_data.get("descricao"),
+                            ativo=genero_data.get("ativo", True)
                     )
                 else:
                     genero = Genero(nome=line, ativo=True)
@@ -184,9 +184,9 @@ def criar_funcoes_tecnicas(source_file: Path) -> Optional[dict[str, FuncaoTecnic
                 if line in funcoes_completas:
                     funcao_data = funcoes_completas[line]
                     funcao = FuncaoTecnica(
-                        nome=line,
-                        descricao=funcao_data.get("descricao"),
-                        ativo=funcao_data.get("ativo", True)
+                            nome=line,
+                            descricao=funcao_data.get("descricao"),
+                            ativo=funcao_data.get("ativo", True)
                     )
                 else:
                     funcao = FuncaoTecnica(nome=line, ativo=True)
@@ -200,7 +200,7 @@ def criar_funcoes_tecnicas(source_file: Path) -> Optional[dict[str, FuncaoTecnic
         return funcoes
 
 
-def criar_pessoas(source_path: Path, fetch_image: bool=False) -> Optional[dict[str, Pessoa]]:
+def criar_pessoas(source_path: Path, fetch_image: bool = False) -> Optional[dict[str, Pessoa]]:
     """Importar todas as pessoas de um diretório contendo arquivos JSON."""
     # Define the directory containing your JSON files
     json_directory = Path(source_path)
@@ -228,7 +228,7 @@ def criar_pessoas(source_path: Path, fetch_image: bool=False) -> Optional[dict[s
             pessoa = Pessoa.get_first_or_none_by("nome", data["nome"])
 
             if not pessoa:
-                nascimento = datetime.strptime(data["data_nascimento"], "%Y-%m-%d")\
+                nascimento = datetime.strptime(data["data_nascimento"], "%Y-%m-%d") \
                     if data["data_nascimento"] else None
 
                 morte = datetime.strptime(data["data_falecimento"], "%Y-%m-%d") \
@@ -250,7 +250,7 @@ def criar_pessoas(source_path: Path, fetch_image: bool=False) -> Optional[dict[s
                     print(f"    ✓ Foto carregada do dump para {data['nome']}")
                 # Caso contrário, baixar foto se necessário
                 elif fetch_image and data.get("foto_path"):
-                    mime_type, image_base64 = TMDBImageFetcher.\
+                    mime_type, image_base64 = TMDBImageFetcher. \
                         download_and_cache_image_as_base64(data.get("foto_path"))
                     if mime_type and image_base64:
                         pessoa.foto_mime = mime_type
@@ -278,7 +278,7 @@ def criar_filmes(source_path: Path,
                  generos: dict[str, Genero],
                  pessoas: dict[str, Pessoa],
                  funcoes: dict[str, FuncaoTecnica],
-                 fetch_image: bool=False) -> Optional[dict[int, Filme]]:
+                 fetch_image: bool = False) -> Optional[dict[int, Filme]]:
     """Importar todos os filmes de um diretório contendo arquivos JSON."""
     # Define the directory containing your JSON files
     json_directory = Path(source_path)
@@ -304,7 +304,7 @@ def criar_filmes(source_path: Path,
                 d = json.load(f)
             # Verificar se o filme já existe
             filme = Filme.get_all_by({"titulo_original": d["titulo_original"],
-                                      "ano_lancamento": d["ano_lancamento"]},
+                                      "ano_lancamento" : d["ano_lancamento"]},
                                      order_by="id").first()
             if not filme:
                 # Criar filme
@@ -321,7 +321,7 @@ def criar_filmes(source_path: Path,
                 # Adicionar filme à sessão e fazer flush para obter ID
                 db.session.add(filme)
                 db.session.flush()  # Garantir que o filme tenha um ID
-                
+
                 for g in d["generos_do_filme"]:
                     filme.generos.append(generos[g])
 
@@ -350,7 +350,7 @@ def criar_filmes(source_path: Path,
                         db.session.add(pessoa_nova)
                         db.session.flush()
                         pessoas[at["nome"]] = pessoa_nova
-                    
+
                     if pessoas[at["nome"]].ator is None:
                         # Garantir que a pessoa é um ator
                         ator = Ator(pessoa=pessoas[at["nome"]])
@@ -382,7 +382,8 @@ def criar_filmes(source_path: Path,
                         filme.com_poster = True
                         current_app.logger.info(f"  ✓ Poster baixado para {d['titulo_original']}")
                     else:
-                        current_app.logger.warning(f"  ❌ Falha ao baixar poster para {d['titulo_original']}")
+                        current_app.logger.warning(
+                            f"  ❌ Falha ao baixar poster para {d['titulo_original']}")
                 print(f"  ✓ {d["titulo_original"]}, {d["ano_lancamento"]}")
             else:
                 print(f"  ⊙ {d["titulo_original"]}, {d["ano_lancamento"]} (já existe)")
@@ -408,7 +409,9 @@ def main():
 
     if not api_key:
         print("❌ ERRO: Chave da API do TMDB não encontrada!")
-        print("\nPara usar este script defina a variável de ambiente: $Env.TMDB_API_KEY=\"sua_chave\"")
+        print(
+            "\nPara usar este script defina a variável de ambiente: "
+            "$Env.TMDB_API_KEY=\"sua_chave\"")
         sys.exit(1)
 
     print("=" * 80)
@@ -425,7 +428,8 @@ def main():
             generos = criar_generos(Path("seeder/output/movies/generos.txt"))
             funcoes = criar_funcoes_tecnicas(Path("seeder/output/movies/funcoes_tecnicas.txt"))
             pessoas = criar_pessoas(Path("seeder/output/person"), fetch_image=True)
-            filmes = criar_filmes(Path("seeder/output/movies"), generos, pessoas, funcoes, fetch_image=True)
+            filmes = criar_filmes(Path("seeder/output/movies"), generos, pessoas, funcoes,
+                                  fetch_image=True)
 
             print("\n" + "=" * 80)
             print("✅ SEED CONCLUÍDO COM SUCESSO!")
