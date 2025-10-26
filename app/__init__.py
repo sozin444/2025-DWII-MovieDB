@@ -3,6 +3,7 @@ import logging
 import os
 import sys
 from functools import wraps
+from pathlib import Path
 
 from flask import Flask
 
@@ -45,10 +46,8 @@ def create_app(config_filename: str = 'config.dev.json') -> Flask:
                 template_folder='templates',
                 )
 
-    try:
-        os.makedirs(app.instance_path)
-    except OSError:
-        pass
+    # Criar diretório instance se não existir
+    Path(app.instance_path).mkdir(parents=True, exist_ok=True)
 
     app_logging.configure_logging(logging.DEBUG)
 
@@ -72,9 +71,9 @@ def create_app(config_filename: str = 'config.dev.json') -> Flask:
         sys.exit(1)
 
     # 2. Carregar .env.crypto se existir (procura em instance/)
-    crypto_file = os.path.join(app.instance_path, '.env.crypto')
-    if os.path.exists(crypto_file):
-        load_dotenv(crypto_file, override=True)
+    crypto_file = Path(app.instance_path) / '.env.crypto'
+    if crypto_file.exists():
+        load_dotenv(str(crypto_file), override=True)
         app.logger.info("Arquivo '%s' carregado" % (crypto_file, ))
     else:
         app.logger.debug("Arquivo '%s' não encontrado" % (crypto_file, ))
@@ -130,8 +129,25 @@ def create_app(config_filename: str = 'config.dev.json') -> Flask:
     app.logger.debug("Registrando blueprints")
     from .routes.root import root_bp
     from .routes.auth import auth_bp
+    from .routes.generos import genero_bp
+    from .routes.funcoes_tecnicas import funcao_tecnica_bp
+    from .routes.pessoas import pessoa_bp
+    from .routes.filmes import filme_bp
+    from .routes.api import api_bp
     app.register_blueprint(auth_bp)
     app.register_blueprint(root_bp)
+    app.register_blueprint(genero_bp)
+    app.register_blueprint(funcao_tecnica_bp)
+    app.register_blueprint(pessoa_bp)
+    app.register_blueprint(filme_bp)
+    app.register_blueprint(api_bp)
+    app.logger.debug("=====[ Rotas registradas")
+    contador = 0
+    for rule in app.url_map.iter_rules():
+        contador += 1
+        app.logger.debug("Endpoint: %s, Rule: %s" %
+                         (rule.endpoint, rule))
+    app.logger.debug("=====[ Total de rotas registradas: %d" % (contador, ))
 
     app.logger.debug("Registrando modulos")
     bootstrap.init_app(app)

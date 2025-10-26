@@ -11,6 +11,7 @@ from collections import defaultdict
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Dict, List, Tuple, Set, Optional, TextIO
 
 import click
@@ -825,29 +826,31 @@ def backup_configuration(env_file: str) -> BackupResult:
     """
     try:
         # Verificar se o arquivo original existe
-        if not os.path.exists(env_file):
+        env_path = Path(env_file)
+        if not env_path.exists():
             return BackupResult(
                 success=False,
                 error_message=f"Arquivo de configuração não encontrado: {env_file}"
             )
-        
+
         # Gerar nome do backup com timestamp
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         backup_file = f"{env_file}.backup_{timestamp}"
-        
+        backup_path = Path(backup_file)
+
         # Criar backup
         shutil.copy2(env_file, backup_file)
-        
+
         # Verificar se o backup foi criado corretamente
-        if not os.path.exists(backup_file):
+        if not backup_path.exists():
             return BackupResult(
                 success=False,
                 error_message=f"Falha ao criar arquivo de backup: {backup_file}"
             )
         
         # Definir permissões seguras no backup (mesmas do original)
-        original_stat = os.stat(env_file)
-        os.chmod(backup_file, original_stat.st_mode)
+        original_stat = env_path.stat()
+        backup_path.chmod(original_stat.st_mode)
         
         current_app.logger.info(f"Backup criado com sucesso: {backup_file}")
         
@@ -891,33 +894,35 @@ def restore_configuration(backup_file: str, original_file: str) -> bool:
     """
     try:
         # Verificar se o backup existe
-        if not os.path.exists(backup_file):
+        backup_path = Path(backup_file)
+        if not backup_path.exists():
             current_app.logger.error(f"Arquivo de backup não encontrado: {backup_file}")
             return False
-        
+
         # Fazer backup do estado atual antes de restaurar (por segurança)
-        if os.path.exists(original_file):
+        original_path = Path(original_file)
+        if original_path.exists():
             temp_backup = f"{original_file}.temp_before_restore"
             try:
                 shutil.copy2(original_file, temp_backup)
             except Exception as e:
                 current_app.logger.warning(f"Não foi possível criar backup temporário: {e}")
-        
+
         # Restaurar do backup
         shutil.copy2(backup_file, original_file)
-        
+
         # Verificar se a restauração foi bem-sucedida
-        if not os.path.exists(original_file):
+        if not original_path.exists():
             current_app.logger.error(f"Falha na restauração: arquivo não foi criado: {original_file}")
             return False
-        
+
         current_app.logger.info(f"Configuração restaurada com sucesso de: {backup_file}")
-        
+
         # Limpar backup temporário se existir
-        temp_backup = f"{original_file}.temp_before_restore"
-        if os.path.exists(temp_backup):
+        temp_backup_path = Path(f"{original_file}.temp_before_restore")
+        if temp_backup_path.exists():
             try:
-                os.remove(temp_backup)
+                temp_backup_path.unlink()
             except Exception as e:
                 current_app.logger.warning(f"Não foi possível remover backup temporário: {e}")
         
@@ -950,19 +955,19 @@ def cleanup_old_backups(env_file: str, keep_backups: int = 5) -> int:
     """
     try:
         # Encontrar todos os arquivos de backup
-        env_dir = os.path.dirname(env_file)
-        env_basename = os.path.basename(env_file)
-        
+        env_path = Path(env_file)
+        env_dir = env_path.parent
+        env_basename = env_path.name
+
         backup_files = []
-        for filename in os.listdir(env_dir):
-            if filename.startswith(f"{env_basename}.backup_"):
-                backup_path = os.path.join(env_dir, filename)
-                if os.path.isfile(backup_path):
+        for item in env_dir.iterdir():
+            if item.name.startswith(f"{env_basename}.backup_"):
+                if item.is_file():
                     # Extrair timestamp do nome do arquivo
                     try:
-                        timestamp_str = filename.split('.backup_')[1]
+                        timestamp_str = item.name.split('.backup_')[1]
                         timestamp = datetime.strptime(timestamp_str, "%Y%m%d_%H%M%S")
-                        backup_files.append((backup_path, timestamp))
+                        backup_files.append((str(item), timestamp))
                     except (IndexError, ValueError):
                         # Ignorar arquivos com formato de timestamp inválido
                         continue
@@ -972,13 +977,13 @@ def cleanup_old_backups(env_file: str, keep_backups: int = 5) -> int:
         
         # Remover backups antigos
         removed_count = 0
-        for backup_path, _ in backup_files[keep_backups:]:
+        for backup_path_str, _ in backup_files[keep_backups:]:
             try:
-                os.remove(backup_path)
+                Path(backup_path_str).unlink()
                 removed_count += 1
-                current_app.logger.info(f"Backup antigo removido: {backup_path}")
+                current_app.logger.info(f"Backup antigo removido: {backup_path_str}")
             except Exception as e:
-                current_app.logger.warning(f"Erro ao remover backup antigo {backup_path}: {e}")
+                current_app.logger.warning(f"Erro ao remover backup antigo {backup_path_str}: {e}")
         
         return removed_count
         
@@ -1003,19 +1008,22 @@ def validate_backup_integrity(backup_file: str, original_file: str) -> bool:
     """
     try:
         # Verificar se o backup existe e é legível
-        if not os.path.exists(backup_file):
+        backup_path = Path(backup_file)
+        if not backup_path.exists():
             return False
-        
-        if not os.access(backup_file, os.R_OK):
-            return False
-        
+
         # Verificar se o arquivo não está vazio
-        if os.path.getsize(backup_file) == 0:
+        try:
+            file_size = backup_path.stat().st_size
+            if file_size == 0:
+                return False
+        except (OSError, PermissionError):
+            # Arquivo não é acessível
             return False
-        
+
         # Tentar ler o conteúdo para verificar se não está corrompido
         try:
-            with open(backup_file, 'r', encoding='utf-8') as f:
+            with backup_path.open('r', encoding='utf-8') as f:
                 content = f.read()
                 # Verificar se contém pelo menos algumas linhas de configuração esperadas
                 if 'ENCRYPTION_KEYS__' not in content and 'ACTIVE_ENCRYPTION_VERSION' not in content:
@@ -1076,7 +1084,8 @@ def remove_versions_from_config(env_file: str, versions_to_remove: List[str]) ->
     
     try:
         # Verificar se o arquivo existe
-        if not os.path.exists(env_file):
+        env_path = Path(env_file)
+        if not env_path.exists():
             return ConfigModificationResult(
                 success=False,
                 error_message=f"Arquivo de configuração não encontrado: {env_file}"
@@ -1183,13 +1192,14 @@ def _write_config_atomically(target_file: str, lines: List[str]) -> AtomicWriteR
     temp_file = None
     try:
         # Criar arquivo temporário no mesmo diretório do arquivo de destino
-        target_dir = os.path.dirname(target_file)
-        target_basename = os.path.basename(target_file)
-        
+        target_path = Path(target_file)
+        target_dir = target_path.parent
+        target_basename = target_path.name
+
         with tempfile.NamedTemporaryFile(
             mode='w',
             encoding='utf-8',
-            dir=target_dir,
+            dir=str(target_dir),
             prefix=f".{target_basename}.tmp.",
             suffix='.tmp',
             delete=False
@@ -1198,35 +1208,39 @@ def _write_config_atomically(target_file: str, lines: List[str]) -> AtomicWriteR
             temp_f.writelines(lines)
             temp_f.flush()
             os.fsync(temp_f.fileno())  # Forçar escrita no disco
-        
+
+        temp_path = Path(temp_file)
+
         # Copiar permissões do arquivo original
-        if os.path.exists(target_file):
-            original_stat = os.stat(target_file)
-            os.chmod(temp_file, original_stat.st_mode)
+        if target_path.exists():
+            original_stat = target_path.stat()
+            temp_path.chmod(original_stat.st_mode)
         else:
             # Definir permissões seguras para novo arquivo
-            os.chmod(temp_file, 0o600)
-        
+            temp_path.chmod(0o600)
+
         # Mover arquivo temporário para destino final (operação atômica)
         if os.name == 'nt':  # Windows
             # No Windows, precisamos remover o arquivo de destino primeiro
-            if os.path.exists(target_file):
-                os.remove(target_file)
-        
+            if target_path.exists():
+                target_path.unlink()
+
         shutil.move(temp_file, target_file)
-        
+
         return AtomicWriteResult(
             success=True,
             temp_file=temp_file
         )
-        
+
     except Exception as e:
         # Limpar arquivo temporário em caso de erro
-        if temp_file and os.path.exists(temp_file):
-            try:
-                os.remove(temp_file)
-            except Exception:
-                pass  # Ignorar erros de limpeza
+        if temp_file:
+            temp_path = Path(temp_file)
+            if temp_path.exists():
+                try:
+                    temp_path.unlink()
+                except Exception:
+                    pass  # Ignorar erros de limpeza
         
         return AtomicWriteResult(
             success=False,
@@ -1318,21 +1332,23 @@ def validate_config_integrity(env_file: str) -> bool:
     Requirements: 6.3
     """
     try:
-        if not os.path.exists(env_file):
+        env_path = Path(env_file)
+        if not env_path.exists():
             current_app.logger.error(f"Arquivo de configuração não existe: {env_file}")
             return False
-        
-        if not os.access(env_file, os.R_OK):
+
+        # Verificar se o arquivo não está vazio e é acessível
+        try:
+            file_size = env_path.stat().st_size
+            if file_size == 0:
+                current_app.logger.error(f"Arquivo de configuração está vazio: {env_file}")
+                return False
+        except (OSError, PermissionError):
             current_app.logger.error(f"Arquivo de configuração não é legível: {env_file}")
             return False
-        
-        # Verificar se o arquivo não está vazio
-        if os.path.getsize(env_file) == 0:
-            current_app.logger.error(f"Arquivo de configuração está vazio: {env_file}")
-            return False
-        
+
         # Ler e validar conteúdo
-        with open(env_file, 'r', encoding='utf-8') as f:
+        with env_path.open('r', encoding='utf-8') as f:
             lines = f.readlines()
         
         # Verificar estrutura básica
@@ -1399,9 +1415,10 @@ def get_config_versions(env_file: str) -> List[str]:
         List[str]: Lista de versões encontradas no arquivo
     """
     versions = set()
-    
+
     try:
-        if not os.path.exists(env_file):
+        env_path = Path(env_file)
+        if not env_path.exists():
             return []
         
         with open(env_file, 'r', encoding='utf-8') as f:
@@ -1527,7 +1544,8 @@ class CleanupOrchestrator:
             )
         
         # Verificar arquivo de configuração
-        if not os.path.exists(self.operation.env_file):
+        env_path = Path(self.operation.env_file)
+        if not env_path.exists():
             raise CleanupError(f"Arquivo de configuração não encontrado: {self.operation.env_file}", self.operation)
         
         # Armazenar classe do modelo para uso posterior
@@ -1646,7 +1664,8 @@ def get_active_version_from_config(env_file: str) -> Optional[str]:
         Optional[str]: Versão ativa ou None se não encontrada
     """
     try:
-        if not os.path.exists(env_file):
+        env_path = Path(env_file)
+        if not env_path.exists():
             return None
         
         with open(env_file, 'r', encoding='utf-8') as f:
@@ -1842,7 +1861,8 @@ def update_active_version_in_config(env_file: str, new_active_version: str) -> b
         bool: True se a atualização foi bem-sucedida
     """
     try:
-        if not os.path.exists(env_file):
+        env_path = Path(env_file)
+        if not env_path.exists():
             current_app.logger.error(f"Arquivo de configuração não encontrado: {env_file}")
             return False
         
@@ -1953,11 +1973,11 @@ def cmd_list(logfile):
             click.echo("  (nenhuma versao encontrada)")
 
         # Verificar possíveis locais do arquivo
-        instance_path = current_app.instance_path
-        crypto_file = os.path.join(instance_path, '.env.crypto')
+        instance_path = Path(current_app.instance_path)
+        crypto_file = instance_path / '.env.crypto'
 
         click.echo(f"\n[INFO] Configuracao carregada de:")
-        if os.path.exists(crypto_file):
+        if crypto_file.exists():
             click.echo(f"  - {crypto_file}")
         click.echo("  - Variaveis de ambiente")
 
@@ -1982,15 +2002,16 @@ def cmd_generate(env_file, version, key_bytes, salt_bytes, yes, logfile):
     with log_to_file(logfile_path):
         # Usar instance/.env.crypto como padrão
         if env_file is None:
-            instance_path = current_app.instance_path
-            env_file = os.path.join(instance_path, '.env.crypto')
+            instance_path = Path(current_app.instance_path)
+            env_file = str(instance_path / '.env.crypto')
 
         # Criar diretório instance se não existir
-        env_dir = os.path.dirname(env_file)
-        if env_dir and not os.path.exists(env_dir):
-            os.makedirs(env_dir, exist_ok=True)
+        env_path = Path(env_file)
+        env_dir = env_path.parent
+        if env_dir and not env_dir.exists():
+            env_dir.mkdir(parents=True, exist_ok=True)
 
-        if os.path.exists(env_file) and not yes:
+        if env_path.exists() and not yes:
             if not click.confirm(f"Arquivo '{env_file}' existe. Sobrescrever?"):
                 click.echo("Operação cancelada.")
                 return
@@ -2013,7 +2034,7 @@ def cmd_generate(env_file, version, key_bytes, salt_bytes, yes, logfile):
             f.write(f'ENCRYPTION_SALT_HASH__{version}="{salt_hash}"\n')
 
         # Proteger arquivo imediatamente
-        os.chmod(env_file, 0o600)
+        env_path.chmod(0o600)
 
         click.echo(f"[OK] Configuracao gerada em: {env_file}")
         click.echo(f"[OK] Versao: {version}")
@@ -2048,8 +2069,8 @@ def cmd_rotate(env_file, new_version, key_bytes, persist, dry_run, yes, logfile)
 
         # Usar instance/.env.crypto como padrão
         if env_file is None:
-            instance_path = current_app.instance_path
-            env_file = os.path.join(instance_path, '.env.crypto')
+            instance_path = Path(current_app.instance_path)
+            env_file = str(instance_path / '.env.crypto')
 
         # Determinar próxima versão
         if not new_version:
@@ -2472,8 +2493,8 @@ def cmd_backup_config(env_file, cleanup_old, keep_backups, logfile):
     
     # Usar instance/.env.crypto como padrão
     if env_file is None:
-        instance_path = current_app.instance_path
-        env_file = os.path.join(instance_path, '.env.crypto')
+        instance_path = Path(current_app.instance_path)
+        env_file = str(instance_path / '.env.crypto')
     
     click.echo(f"Criando backup de: {env_file}")
     
@@ -2514,8 +2535,8 @@ def cmd_restore_config(backup_file, env_file, yes, logfile):
     
     # Usar instance/.env.crypto como padrão
     if env_file is None:
-        instance_path = current_app.instance_path
-        env_file = os.path.join(instance_path, '.env.crypto')
+        instance_path = Path(current_app.instance_path)
+        env_file = str(instance_path / '.env.crypto')
     
     click.echo(f"Restaurando de: {backup_file}")
     click.echo(f"Para: {env_file}")
@@ -2554,8 +2575,8 @@ def cmd_remove_versions(versions, env_file, dry_run, yes, logfile):
     
     # Usar instance/.env.crypto como padrão
     if env_file is None:
-        instance_path = current_app.instance_path
-        env_file = os.path.join(instance_path, '.env.crypto')
+        instance_path = Path(current_app.instance_path)
+        env_file = str(instance_path / '.env.crypto')
     
     # Parsear versões
     versions_to_remove = [v.strip() for v in versions.split(',') if v.strip()]
@@ -2689,8 +2710,8 @@ def cmd_cleanup_keys(model, column, keep_versions, env_file, dry_run, yes, logfi
     """
     # Definir arquivo de configuração padrão
     if env_file is None:
-        instance_path = current_app.instance_path
-        env_file = os.path.join(instance_path, '.env.crypto')
+        instance_path = Path(current_app.instance_path)
+        env_file = str(instance_path / '.env.crypto')
     
     # Criar operação de limpeza com ID único
     operation = CleanupOperation(
@@ -2799,12 +2820,13 @@ def cmd_validate_config(env_file, logfile):
     with log_to_file(logfile_path):
         # Usar instance/.env.crypto como padrão
         if env_file is None:
-            instance_path = current_app.instance_path
-            env_file = os.path.join(instance_path, '.env.crypto')
+            instance_path = Path(current_app.instance_path)
+            env_file = str(instance_path / '.env.crypto')
         
         click.echo(f"Validando: {env_file}")
-        
-        if not os.path.exists(env_file):
+
+        env_path = Path(env_file)
+        if not env_path.exists():
             raise click.ClickException(f"Arquivo não encontrado: {env_file}")
         
         # Executar validação

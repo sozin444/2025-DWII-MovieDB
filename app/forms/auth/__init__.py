@@ -113,11 +113,19 @@ class ProfileForm(FlaskForm):
             label="Nome",
             validators=[InputRequired(message="É obrigatório informar um nome"),
                         Length(max=60,
-                               message="O nome pode ter até 60 caracteres")])
+                               message="O nome pode ter até 60 caracteres")],
+            render_kw={
+                'placeholder': 'Digite o seu nome'
+            }
+    )
     email = StringField(
             label="Email",
             validators=[CampoImutavel(field_name='email',
-                                      message="Você não pode alterar o email.")])
+                                      message="Você não pode alterar o email.")],
+            render_kw={
+                'placeholder': 'Digite o seu melhor email'
+            }
+    )
 
     usa_2fa = BooleanField(
             label="Ativar o segundo fator de autenticação")

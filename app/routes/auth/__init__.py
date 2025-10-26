@@ -376,7 +376,7 @@ def reset_password(token):
                            form=form)
 
 
-@auth_bp.route('/foto/<uuid:user_id>')
+@auth_bp.route('/<uuid:user_id>/foto')
 @login_required
 def foto(user_id):
     """Serve a foto do usuário.
@@ -390,20 +390,21 @@ def foto(user_id):
     Returns:
         flask.Response: Imagem da foto do usuário ou identicon.
     """
-    usuario = User.get_by_id(user_id)
-
-    if usuario:
-        foto_data, mime_type = usuario.foto
-        return ImageProcessingService.servir_imagem(foto_data, mime_type)
-    else:
+    try:
+        usuario = User.get_by_id(user_id,
+                                 raise_if_not_found=True)
+    except User.RecordNotFoundError:
         # Usuário não encontrado - retorna placeholder
-        placeholder_data = ImageProcessingService.gerar_placeholder(300, 400,
-                                                                    "Usuário\nnão encontrado",
-                                                                    48)
-        return ImageProcessingService.servir_imagem(placeholder_data, 'image/png')
+        foto_data = ImageProcessingService.gerar_placeholder(300, 400,
+                                                             "Usuário\nnão encontrado",
+                                                             36)
+        mime_type = 'image/png'
+    else:
+        foto_data, mime_type = usuario.foto
+    return ImageProcessingService.servir_imagem(foto_data, mime_type)
 
 
-@auth_bp.route('/avatar/<uuid:user_id>')
+@auth_bp.route('/<uuid:user_id>/avatar')
 @login_required
 def avatar(user_id):
     """Serve o avatar do usuário.
@@ -417,17 +418,18 @@ def avatar(user_id):
     Returns:
         flask.Response: Imagem do avatar do usuário ou identicon.
     """
-    usuario = User.get_by_id(user_id)
-
-    if usuario:
-        avatar_data, mime_type = usuario.avatar
-        return ImageProcessingService.servir_imagem(avatar_data, mime_type)
-    else:
+    try:
+        usuario = User.get_by_id(user_id,
+                                 raise_if_not_found=True)
+    except User.RecordNotFoundError:
         # Usuário não encontrado - retorna placeholder
-        placeholder_data = ImageProcessingService.gerar_placeholder(64, 64,
+        avatar_data = ImageProcessingService.gerar_placeholder(64, 64,
                                                                     "Usuário\nnão encontrado",
-                                                                    14)
-        return ImageProcessingService.servir_imagem(placeholder_data, 'image/png')
+                                                                    12)
+        mime_type = 'image/png'
+    else:
+        avatar_data, mime_type = usuario.avatar
+    return ImageProcessingService.servir_imagem(avatar_data, mime_type)
 
 
 @auth_bp.route('/', methods=['GET', 'POST'])
@@ -526,6 +528,7 @@ def profile():
                            title_card="Altere seus dados",
                            form=form,
                            backup_codes_count=backup_codes_count)
+
 
 @auth_bp.route('ativar_2fa', methods=['GET', 'POST'])
 @login_required
