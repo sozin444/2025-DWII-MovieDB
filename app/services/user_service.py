@@ -163,8 +163,10 @@ class UserService:
                     error_message="ID de usuário inválido"
             )
 
-        usuario = User.get_by_id(uuid_obj)
-        if usuario is None:
+        try:
+            usuario = User.get_by_id(uuid_obj,
+                                     raise_if_not_found=True)
+        except User.RecordNotFoundError:
             current_app.logger.warning(
                     "Tentativa de reenvio de email para usuário inexistente: %s" % (user_id,))
             return UserServiceResult(
@@ -419,8 +421,10 @@ class UserService:
         if dados_token.sub is None:
             current_app.logger.error("Token de 2FA sem subject")
             return UserServiceResult(status=UserOperationStatus.INVALID_CREDENTIALS)
-        usuario = User.get_by_id(dados_token.sub)
-        if usuario is None:
+        try:
+            usuario = User.get_by_id(dados_token.sub,
+                                     raise_if_not_found=True)
+        except User.RecordNotFoundError:
             current_app.logger.warning("Tentativa de 2FA para usuário inexistente")
             return UserServiceResult(status=UserOperationStatus.USER_NOT_FOUND)
 

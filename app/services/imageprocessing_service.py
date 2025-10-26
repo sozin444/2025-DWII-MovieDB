@@ -3,6 +3,7 @@ import io
 import re
 from base64 import b64decode, b64encode
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional, Tuple
 
 from flask import current_app, Response
@@ -45,18 +46,20 @@ class ImageProcessingService:
     PNG_OPTIMIZE = True
 
     @staticmethod
-    def processar_upload_foto(arquivo_upload,
-                              avatar_size: Optional[int] = None,
-                              max_file_size: Optional[int] = None,
-                              max_dimensions: Optional[
-                                  Tuple[int, int]] = None) -> ImageProcessingResult:
-        """Processa um arquivo de imagem enviado via upload, gerando foto original e avatar.
+    def processar_upload_imagem(arquivo_upload,
+                                avatar_size: Optional[int] = None,
+                                max_file_size: Optional[int] = None,
+                                max_dimensions: Optional[
+                                  Tuple[int, int]] = None,
+                                crop_aspect_ratio: bool = False) -> ImageProcessingResult:
+        """Processa um arquivo de imagem enviado via upload, gerando imagem original e avatar.
 
         Args:
             arquivo_upload (FileStorage): Objeto de arquivo (FileStorage do Flask).
             avatar_size (Optional[int]): Tamanho do avatar em pixels. Se None, usa configuração da app ou 32.
             max_file_size (Optional[int]): Tamanho máximo do arquivo em bytes. Se None, usa configuração da app ou 5MiB.
             max_dimensions (Optional[Tuple[int, int]]): Dimensões máximas permitidas (largura, altura). Se None, usa configuração da app ou (2048, 2048).
+            crop_aspect_ratio (bool): Se True, aplica crop para aspect ratio 2:3. Default: False
 
         Returns:
             ImageProcessingResult: Resultado do processamento da imagem.
@@ -69,12 +72,15 @@ class ImageProcessingService:
             raise ValueError("Nenhum arquivo fornecido")
 
         # Configurações com fallbacks
-        avatar_size = avatar_size or current_app.config.get('AVATAR_SIZE',
-                                                            ImageProcessingService.DEFAULT_AVATAR_SIZE)
-        max_file_size = max_file_size or current_app.config.get('MAX_IMAGE_SIZE',
-                                                                ImageProcessingService.DEFAULT_MAX_FILE_SIZE)
-        max_dimensions = max_dimensions or current_app.config.get('MAX_IMAGE_DIMENSIONS',
-                                                                  ImageProcessingService.DEFAULT_MAX_DIMENSIONS)
+        avatar_size = avatar_size or \
+                      current_app.config.get('AVATAR_SIZE',
+                                             ImageProcessingService.DEFAULT_AVATAR_SIZE)
+        max_file_size = max_file_size or \
+                        current_app.config.get('MAX_IMAGE_SIZE',
+                                               ImageProcessingService.DEFAULT_MAX_FILE_SIZE)
+        max_dimensions = max_dimensions or \
+                         current_app.config.get('MAX_IMAGE_DIMENSIONS',
+                                                ImageProcessingService.DEFAULT_MAX_DIMENSIONS)
 
         try:
             # Lê os dados do arquivo
@@ -93,7 +99,9 @@ class ImageProcessingService:
             # Processa a imagem
             return ImageProcessingService._processar_imagem_bytes(imagem_data,
                                                                   arquivo_upload.mimetype,
-                                                                  avatar_size, max_dimensions)
+                                                                  avatar_size,
+                                                                  max_dimensions,
+                                                                  crop_aspect_ratio)
 
         except (AttributeError, OSError) as e:
             raise ImageProcessingError(f"Erro ao processar arquivo de imagem: {str(e)}") from e
@@ -106,8 +114,9 @@ class ImageProcessingService:
                              crop_aspect_ratio: bool = True) -> ImageProcessingResult:
         """Processa foto de pessoa com crop automático para aspect ratio 2:3.
 
-        Similar ao processar_upload_foto, mas aplica crop automático para o aspect ratio
-        2:3 (padrão para fotos de pessoas) antes do processamento.
+        Atalho para processar_upload_imagem com crop_aspect_ratio=True por padrão.
+        Aplica crop automático para o aspect ratio 2:3 (padrão para fotos de pessoas)
+        antes do processamento.
 
         Args:
             arquivo_upload (FileStorage): Objeto de arquivo (FileStorage do Flask).
@@ -126,46 +135,17 @@ class ImageProcessingService:
         Examples:
             >>> # Processar foto de pessoa com crop automático
             >>> resultado = ImageProcessingService.processar_pessoa_foto(arquivo)
-            
+
             >>> # Processar sem crop (comportamento original)
             >>> resultado = ImageProcessingService.processar_pessoa_foto(arquivo, crop_aspect_ratio=False)
         """
-        if arquivo_upload is None:
-            raise ValueError("Nenhum arquivo fornecido")
-
-        # Configurações com fallbacks
-        avatar_size = avatar_size or current_app.config.get('AVATAR_SIZE',
-                                                            ImageProcessingService.DEFAULT_AVATAR_SIZE)
-        max_file_size = max_file_size or current_app.config.get('MAX_IMAGE_SIZE',
-                                                                ImageProcessingService.DEFAULT_MAX_FILE_SIZE)
-        max_dimensions = max_dimensions or current_app.config.get('MAX_IMAGE_DIMENSIONS',
-                                                                  ImageProcessingService.DEFAULT_MAX_DIMENSIONS)
-
-        try:
-            # Lê os dados do arquivo
-            arquivo_upload.seek(0)  # Garante que está no início
-            imagem_data = arquivo_upload.read()
-
-            if not imagem_data:
-                raise ValueError("Arquivo de imagem vazio")
-
-            # Validação de tamanho
-            if len(imagem_data) > max_file_size:
-                raise ValueError(
-                        f"Arquivo muito grande. Máximo permitido: "
-                        f"{max_file_size / (1024 * 1024):.1f}MB")
-
-            # Processa a imagem com crop se solicitado
-            return ImageProcessingService._processar_imagem_bytes(
-                imagem_data,
-                arquivo_upload.mimetype,
-                avatar_size, 
-                max_dimensions,
-                crop_aspect_ratio
-            )
-
-        except (AttributeError, OSError) as e:
-            raise ImageProcessingError(f"Erro ao processar arquivo de imagem: {str(e)}") from e
+        return ImageProcessingService.processar_upload_imagem(
+            arquivo_upload,
+            avatar_size,
+            max_file_size,
+            max_dimensions,
+            crop_aspect_ratio
+        )
 
     @staticmethod
     def processar_base64(base64_string: str,
@@ -235,7 +215,9 @@ class ImageProcessingService:
                                 mime_type: str,
                                 avatar_size: int,
                                 max_dimensions: Tuple[int, int],
-                                crop_aspect_ratio: bool = False) -> ImageProcessingResult:
+                                crop_aspect_ratio: bool = False,
+                                aspect_width: int = 2,
+                                aspect_height: int = 3) -> ImageProcessingResult:
         """Processa dados de imagem em bytes com opção de crop.
 
         Args:
@@ -272,7 +254,9 @@ class ImageProcessingService:
 
                 # Aplica crop se solicitado
                 if crop_aspect_ratio:
-                    imagem = ImageProcessingService.crop_to_aspect_ratio(imagem, 2, 3)
+                    imagem = ImageProcessingService.crop_to_aspect_ratio(imagem,
+                                                                         aspect_width,
+                                                                         aspect_height)
                     # Restaura o formato após o crop
                     imagem.format = formato_original
 
@@ -300,7 +284,7 @@ class ImageProcessingService:
 
     @staticmethod
     def _gerar_avatar(imagem: Image.Image,
-                      avatar_size: int) -> Tuple[bytes, Tuple[int, int]]:
+                      avatar_size: int = None) -> Tuple[bytes, Tuple[int, int]]:
         """Gera avatar redimensionado a partir da imagem.
 
         Redimensiona a imagem proporcionalmente mantendo o aspect ratio original,
@@ -319,6 +303,9 @@ class ImageProcessingService:
         """
         largura, altura = imagem.size
         formato_original = imagem.format
+        avatar_size = avatar_size or \
+                      current_app.config.get('AVATAR_SIZE',
+                                             ImageProcessingService.DEFAULT_AVATAR_SIZE)
 
         imagem_avatar = imagem.copy()
         # Otimização: pula redimensionamento se já está no tamanho adequado
@@ -442,31 +429,61 @@ class ImageProcessingService:
     def gerar_placeholder(largura: int,
                           altura: int,
                           texto: Optional[str] = None,
-                          tamanho_fonte: Optional[int] = None) -> bytes:
+                          tamanho_fonte: Optional[int] = None,
+                          font_file: str = 'arial.ttf') -> bytes:
         """Gera uma imagem placeholder com texto centralizado.
 
         Args:
             largura (int): Largura da imagem em pixels
             altura (int): Altura da imagem em pixels
             texto (str, opcional): Texto a ser exibido (pode conter \n)
-            tamanho_fonte (int, opcional): Tamanho da fonte
+            tamanho_fonte (int, opcional): Tamanho da fonte. Use -1 para determinação automática
+            font_file (str): Nome do arquivo de fonte em app/static/fonts/. Default: 'arial.ttf'
 
         Returns:
             bytes: Dados da imagem PNG em bytes
 
         Raises:
             ImageProcessingError: Se texto for fornecido mas tamanho_fonte não for.
+
+        Examples:
+            >>> # Placeholder com tamanho de fonte fixo e fonte padrão (Arial)
+            >>> placeholder = ImageProcessingService.gerar_placeholder(300, 400, "Texto", 36)
+
+            >>> # Placeholder com tamanho de fonte automático
+            >>> placeholder = ImageProcessingService.gerar_placeholder(300, 400, "Texto Longo", -1)
+
+            >>> # Placeholder com fonte customizada
+            >>> placeholder = ImageProcessingService.gerar_placeholder(300, 400, "Texto", 36, 'roboto.ttf')
         """
-        if texto and not tamanho_fonte:
+        if texto and tamanho_fonte is None:
             raise ImageProcessingError(
                 "Se texto for fornecido, tamanho_fonte deve ser especificado.")
 
         img = Image.new('RGB', (largura, altura), color='#6c757d')
         draw = ImageDraw.Draw(img)
 
-        if texto and tamanho_fonte:
+        if texto and tamanho_fonte is not None:
+            # Determina o caminho da fonte
+            # Tenta usar a fonte especificada do diretório static/fonts, senão usa fonte padrão
+            font_path = None
+            if current_app:
+                static_font_path = Path(current_app.static_folder) / 'fonts' / font_file
+                if static_font_path.exists():
+                    font_path = str(static_font_path)
+
+            # Se tamanho_fonte é -1, calcula automaticamente
+            if tamanho_fonte == -1:
+                tamanho_fonte = ImageProcessingService._calculate_max_font_size(
+                    texto,
+                    (largura, altura),
+                    font_path,
+                    margin=20  # Margem de 20px ao redor do texto
+                )
+
+            # Carrega a fonte (TrueType ou padrão)
             try:
-                fonte = ImageFont.truetype("arial.ttf", tamanho_fonte)
+                fonte = ImageFont.truetype(font_path, tamanho_fonte)
             except (OSError, ValueError):
                 fonte = ImageFont.load_default(size=tamanho_fonte)
             except Exception as e:
@@ -499,3 +516,69 @@ class ImageProcessingService:
         response.headers['Content-Type'] = mime_type
         response.headers['Cache-Control'] = 'public, max-age=3600'
         return response
+
+
+    @staticmethod
+    def _calculate_max_font_size(text: str,
+                                 image_size,
+                                 font_path: Optional[str] = None,
+                                 margin=0) -> int:
+        """Calcula o maior tamanho de fonte que permite que o texto caiba dentro das dimensões da imagem.
+
+        Args:
+            text (str): Texto a ser renderizado.
+            image_size (Tuple[int, int]): Dimensões da imagem (largura, altura).
+            font_path (Optional[str]): Caminho para o arquivo de fonte TrueType (.ttf).
+                                       Se None ou inválido, usa a fonte padrão do PIL.
+            margin (int): Margem em pixels a ser deixada ao redor do texto. Default é 0.
+
+        Returns:
+            int: O maior tamanho de fonte que permite que o texto caiba na imagem.
+
+        Note:
+            Se a fonte TrueType não estiver disponível, faz fallback automático para ImageFont.load_default().
+        """
+        img_width, img_height = image_size
+        max_width = img_width - 2 * margin
+        max_height = img_height - 2 * margin
+
+        draw = ImageDraw.Draw(Image.new("RGB", image_size))
+
+        # Tenta determinar se deve usar TrueType ou fonte padrão
+        use_truetype = False
+        if font_path:
+            try:
+                # Testa se a fonte TrueType está disponível
+                ImageFont.truetype(font_path, 10)
+                use_truetype = True
+            except (OSError, ValueError):
+                use_truetype = False
+
+        # Binary search para encontrar o melhor tamanho de fonte
+        low, high = 1, 500  # Limites razoáveis de tamanho de fonte
+        best_size = low
+
+        while low <= high:
+            mid = (low + high) // 2
+
+            # Carrega a fonte apropriada
+            if use_truetype:
+                try:
+                    font = ImageFont.truetype(font_path, mid)
+                except (OSError, ValueError):
+                    # Se falhar durante a busca binária, usa fonte padrão
+                    font = ImageFont.load_default(size=mid)
+            else:
+                font = ImageFont.load_default(size=mid)
+
+            bbox = draw.textbbox((0, 0), text, font=font)
+            text_width = bbox[2] - bbox[0]
+            text_height = bbox[3] - bbox[1]
+
+            if text_width <= max_width and text_height <= max_height:
+                best_size = mid
+                low = mid + 1  # Tenta uma fonte maior
+            else:
+                high = mid - 1  # Tenta uma fonte menor
+
+        return best_size

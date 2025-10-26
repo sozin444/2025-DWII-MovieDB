@@ -233,7 +233,7 @@ class User(db.Model, BasicRepositoryMixin, AuditMixin, UserMixin):
             self._clear_foto_fields()
         else:
             try:
-                resultado = ImageProcessingService.processar_upload_foto(value)
+                resultado = ImageProcessingService.processar_pessoa_foto(value)
             except (ImageProcessingError, ValueError):
                 self._clear_foto_fields()
                 raise

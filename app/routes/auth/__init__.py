@@ -390,17 +390,18 @@ def foto(user_id):
     Returns:
         flask.Response: Imagem da foto do usuário ou identicon.
     """
-    usuario = User.get_by_id(user_id)
-
-    if usuario:
-        foto_data, mime_type = usuario.foto
-        return ImageProcessingService.servir_imagem(foto_data, mime_type)
-    else:
+    try:
+        usuario = User.get_by_id(user_id,
+                                 raise_if_not_found=True)
+    except User.RecordNotFoundError:
         # Usuário não encontrado - retorna placeholder
-        placeholder_data = ImageProcessingService.gerar_placeholder(300, 400,
-                                                                    "Usuário\nnão encontrado",
-                                                                    36)
-        return ImageProcessingService.servir_imagem(placeholder_data, 'image/png')
+        foto_data = ImageProcessingService.gerar_placeholder(300, 400,
+                                                             "Usuário\nnão encontrado",
+                                                             36)
+        mime_type = 'image/png'
+    else:
+        foto_data, mime_type = usuario.foto
+    return ImageProcessingService.servir_imagem(foto_data, mime_type)
 
 
 @auth_bp.route('/<uuid:user_id>/avatar')
@@ -417,17 +418,18 @@ def avatar(user_id):
     Returns:
         flask.Response: Imagem do avatar do usuário ou identicon.
     """
-    usuario = User.get_by_id(user_id)
-
-    if usuario:
-        avatar_data, mime_type = usuario.avatar
-        return ImageProcessingService.servir_imagem(avatar_data, mime_type)
-    else:
+    try:
+        usuario = User.get_by_id(user_id,
+                                 raise_if_not_found=True)
+    except User.RecordNotFoundError:
         # Usuário não encontrado - retorna placeholder
-        placeholder_data = ImageProcessingService.gerar_placeholder(64, 64,
+        avatar_data = ImageProcessingService.gerar_placeholder(64, 64,
                                                                     "Usuário\nnão encontrado",
                                                                     12)
-        return ImageProcessingService.servir_imagem(placeholder_data, 'image/png')
+        mime_type = 'image/png'
+    else:
+        avatar_data, mime_type = usuario.avatar
+    return ImageProcessingService.servir_imagem(avatar_data, mime_type)
 
 
 @auth_bp.route('/', methods=['GET', 'POST'])

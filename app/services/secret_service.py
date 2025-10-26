@@ -3,6 +3,7 @@ import hashlib
 import os
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from pathlib import Path
 from threading import RLock
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
@@ -532,10 +533,11 @@ class SecretsManager:
                              salt: bytes):
         """Atualiza arquivo .env mantendo outras variáveis."""
         data = {}
+        env_path = Path(filename)
 
         # Ler arquivo existente
-        if os.path.exists(filename):
-            with open(filename, 'r', encoding='utf-8') as f:
+        if env_path.exists():
+            with env_path.open('r', encoding='utf-8') as f:
                 for line in f:
                     line = line.strip()
                     if not line or line.startswith('#'):
@@ -554,7 +556,7 @@ class SecretsManager:
         data[f"ENCRYPTION_SALT_HASH__{version}"] = salt_hash
 
         # Escrever de volta
-        with open(filename, 'w', encoding='utf-8') as f:
+        with env_path.open('w', encoding='utf-8') as f:
             f.write(f"# Atualizado em {datetime.now(timezone.utc).isoformat()}Z\n")
             for k, v in sorted(data.items()):
                 f.write(f'{k}="{v}"\n')
