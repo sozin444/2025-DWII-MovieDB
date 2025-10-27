@@ -782,8 +782,10 @@ class UserService:
                            f"Valores permitidos: {', '.join(valid_order_fields)}")
 
         # Constrói statement base com JOIN
-        stmt = select(Avaliacao).join(Filme).where(
-            Avaliacao.usuario_id == usuario.id
+        stmt = (
+            select(Avaliacao)
+            .join(Filme)
+            .where(Avaliacao.usuario_id == usuario.id)
         )
 
         # Define o campo de ordenação

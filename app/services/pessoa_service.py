@@ -93,9 +93,11 @@ class PessoaService:
             session = cls._default_session
 
         # Constrói a query base com join no Filme para ordenação
-        stmt = select(EquipeTecnica). \
-            join(Filme, EquipeTecnica.filme_id == Filme.id). \
-            where(EquipeTecnica.pessoa_id == pessoa.id)
+        stmt = (
+            select(EquipeTecnica)
+            .join(Filme, EquipeTecnica.filme_id == Filme.id)
+            .where(EquipeTecnica.pessoa_id == pessoa.id)
+        )
         if year_reverse:
             stmt = stmt.order_by(desc(Filme.ano_lancamento))
         else:
@@ -132,8 +134,11 @@ class PessoaService:
         return funcoes
 
     @classmethod
-    def listar_pessoas(cls, page: int = 1, per_page: int = 20, search: str = None, session=None,
-                       auto_commit: bool = True):
+    def listar_pessoas(cls,
+                       page: int = 1,
+                       per_page: int = 20,
+                       search: str = None,
+                       session=None):
         """Lista pessoas com paginação e busca por nome ou nome artístico.
 
         Args:
@@ -141,8 +146,6 @@ class PessoaService:
             per_page (int): Número de registros por página. Default: 20
             search (str): Termo de busca para filtrar por nome ou nome artístico. Default: None
             session: Sessão SQLAlchemy opcional. Se None, usa a sessão padrão da classe.
-            auto_commit (bool): Se True, faz commit automaticamente. Se False, apenas
-                               atualiza o objeto (útil quando chamado dentro de outra transação).
 
         Returns:
             Pagination: Objeto de paginação do Flask-SQLAlchemy contendo:
@@ -169,7 +172,11 @@ class PessoaService:
             session = cls._default_session
 
         # Constrói statement base com LEFT JOIN para incluir dados do ator
-        stmt = select(Pessoa).outerjoin(Ator, Pessoa.id == Ator.pessoa_id).order_by(Pessoa.nome)
+        stmt = (
+            select(Pessoa)
+            .outerjoin(Ator, Pessoa.id == Ator.pessoa_id)
+            .order_by(Pessoa.nome)
+        )
 
         # Aplica filtro de busca se fornecido
         # Busca tanto em Pessoa.nome quanto em Ator.nome_artistico
@@ -191,7 +198,10 @@ class PessoaService:
         )
 
     @classmethod
-    def criar_pessoa(cls, form_data, session=None, auto_commit: bool = True):
+    def criar_pessoa(cls,
+                     form_data,
+                     session=None,
+                     auto_commit: bool = True):
         """Cria uma nova pessoa a partir dos dados do formulário.
 
         Args:
@@ -238,16 +248,22 @@ class PessoaService:
                 session.commit()
 
         except SQLAlchemyError as e:
-            session.rollback()
+            if auto_commit:
+                session.rollback()
             raise PessoaError(f"Erro de banco de dados ao criar pessoa: {str(e)}") from e
         except Exception as e:
-            session.rollback()
+            if auto_commit:
+                session.rollback()
             raise PessoaError(f"Erro ao criar pessoa: {str(e)}") from e
 
         return pessoa
 
     @classmethod
-    def atualizar_pessoa(cls, pessoa, form_data, session=None, auto_commit: bool = True):
+    def atualizar_pessoa(cls,
+                         pessoa,
+                         form_data,
+                         session=None,
+                         auto_commit: bool = True):
         """Atualiza uma pessoa existente com dados do formulário.
 
         Args:
@@ -294,13 +310,6 @@ class PessoaService:
             if hasattr(form_data, 'nome_artistico'):
                 # Obtém o valor do campo, tratando None e string vazia
                 raw_value = form_data.nome_artistico.data
-                from flask import current_app
-                current_app.logger.debug(
-                        f"[ATOR] Raw value from form: '{raw_value}' (type: {type(raw_value)})")
-                current_app.logger.debug(f"[ATOR] Pessoa has ator: {pessoa.ator is not None}")
-                if pessoa.ator:
-                    current_app.logger.debug(
-                            f"[ATOR] Current ator.nome_artistico: '{pessoa.ator.nome_artistico}'")
 
                 # Normaliza o valor: None, string vazia, ou string 'None' -> None
                 if raw_value is None or raw_value == '' or str(raw_value).strip().lower() == 'none':
@@ -308,30 +317,19 @@ class PessoaService:
                 else:
                     nome_artistico = str(raw_value).strip()
 
-                current_app.logger.debug(f"[ATOR] Normalized nome_artistico: '{nome_artistico}'")
-
                 if nome_artistico:
                     # Se há nome artístico fornecido
                     if pessoa.ator:
                         # Atualiza o nome artístico do ator existente
-                        current_app.logger.debug(
-                                f"[ATOR] Updating existing ator ID {pessoa.ator.id}: '"
-                                f"{pessoa.ator.nome_artistico}' -> '{nome_artistico}'")
                         pessoa.ator.nome_artistico = nome_artistico
                         session.add(pessoa.ator)  # Marca explicitamente para update
                     else:
-                        # Cria novo registro de Ator
-                        current_app.logger.debug(
-                                f"[ATOR] Creating new ator for pessoa ID {pessoa.id} with "
-                                f"nome_artistico: '{nome_artistico}'")
                         novo_ator = Ator(pessoa_id=pessoa.id, nome_artistico=nome_artistico)
                         session.add(novo_ator)
                 else:
                     # Se nome artístico foi removido e pessoa é ator
                     if pessoa.ator:
                         # Remove o nome artístico (mas mantém o registro de Ator se houver atuações)
-                        current_app.logger.debug(
-                                f"[ATOR] Removing nome_artistico from ator ID {pessoa.ator.id}")
                         pessoa.ator.nome_artistico = None
                         session.add(pessoa.ator)  # Marca explicitamente para update
 
@@ -340,16 +338,21 @@ class PessoaService:
                 session.commit()
 
         except SQLAlchemyError as e:
-            session.rollback()
+            if auto_commit:
+                session.rollback()
             raise PessoaError(f"Erro de banco de dados ao atualizar pessoa: {str(e)}") from e
         except Exception as e:
-            session.rollback()
+            if auto_commit:
+                session.rollback()
             raise PessoaError(f"Erro ao atualizar pessoa: {str(e)}") from e
 
         return pessoa
 
     @classmethod
-    def deletar_pessoa(cls, pessoa, session=None, auto_commit: bool = True):
+    def deletar_pessoa(cls,
+                       pessoa,
+                       session=None,
+                       auto_commit: bool = True):
         """Deleta uma pessoa verificando relacionamentos existentes.
 
         Verifica se a pessoa possui relacionamentos com filmes (como ator ou equipe técnica).
@@ -391,7 +394,7 @@ class PessoaService:
             # Conta atuações do ator
             total_relacionamentos += len(pessoa.ator.filmes)
 
-        # Se há relacionamentos, aborta a deleção (requirement 4.3)
+        # Se há relacionamentos, aborta a deleção
         if total_relacionamentos > 0:
             return {
                 'success'        : False,
@@ -419,8 +422,11 @@ class PessoaService:
         }
 
     @classmethod
-    def validar_pessoa_unica(cls, nome: str, data_nascimento=None, pessoa_id=None, session=None,
-                             auto_commit: bool = True):
+    def validar_pessoa_unica(cls,
+                             nome: str,
+                             data_nascimento=None,
+                             pessoa_id=None,
+                             session=None):
         """Valida se uma pessoa é única baseada em nome e data de nascimento.
 
         Verifica se já existe uma pessoa com a mesma combinação de nome e data
@@ -431,8 +437,6 @@ class PessoaService:
             data_nascimento: Data de nascimento da pessoa (opcional)
             pessoa_id: ID da pessoa atual (para exclusão durante edição)
             session: Sessão SQLAlchemy opcional. Se None, usa a sessão padrão da classe.
-            auto_commit (bool): Se True, faz commit automaticamente. Se False, apenas
-                               atualiza o objeto (útil quando chamado dentro de outra transação).
 
         Returns:
             bool: True se a pessoa é única, False se já existe

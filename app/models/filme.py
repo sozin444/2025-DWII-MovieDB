@@ -167,3 +167,56 @@ class FuncaoTecnica(db.Model, BasicRepositoryMixin, AuditMixin):
             secondary="equipes_tecnicas",
             back_populates="funcoes_tecnicas_executadas",
             overlaps="pessoas_executando")
+
+    @classmethod
+    def get_active(cls, session=None) -> list['FuncaoTecnica']:
+        """Obtém todas as funções técnicas ativas ordenadas por nome.
+
+        Args:
+            session: Sessão SQLAlchemy opcional. Se None, usa db.session.
+
+        Returns:
+            list[FuncaoTecnica]: Lista de funções técnicas ativas ordenadas por nome
+
+        Example:
+            >>> funcoes = FuncaoTecnica.get_active()
+            >>> for funcao in funcoes:
+            ...     print(funcao.nome)
+        """
+        from app.infra.modulos import db
+        from sqlalchemy import select
+
+        session = session or db.session
+        return list(session.scalars(
+            select(cls)
+            .where(cls.ativo == True)
+            .order_by(cls.nome)
+        ).all())
+
+    @classmethod
+    def get_choices_for_dropdown(cls,
+                                 session=None,
+                                 include_empty: bool = True) -> list[tuple[str, str]]:
+        """Obtém lista de choices formatada para uso em dropdowns de formulários.
+
+        Args:
+            session: Sessão SQLAlchemy opcional. Se None, usa db.session.
+            include_empty: Se True, inclui opção vazia no início da lista (padrão True)
+
+        Returns:
+            list[tuple[str, str]]: Lista de tuplas (id, nome) para uso em SelectField
+
+        Example:
+            >>> choices = FuncaoTecnica.get_choices_for_dropdown()
+            >>> print(choices[0])
+            ('', 'Selecione uma função técnica')
+        """
+        funcoes = cls.get_active(session)
+
+        choices = []
+        if include_empty:
+            choices.append(('', 'Selecione uma função técnica'))
+
+        choices.extend((str(funcao.id), funcao.nome) for funcao in funcoes)
+
+        return choices

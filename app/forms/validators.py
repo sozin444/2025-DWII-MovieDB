@@ -1,4 +1,5 @@
 import re
+import uuid
 from collections import namedtuple
 from typing import Any, Callable, Optional
 
@@ -363,3 +364,19 @@ class PositiveDecimalValidator:
                 raise ValidationError(self.message)
         except (InvalidOperation, ValueError):
             raise ValidationError("Valor numérico inválido")
+
+
+class UUIDValidator:
+    """Validador customizado para campos UUID."""
+
+    def __init__(self, message: Optional[str] = None):
+        self.message = message or "UUID inválido"
+
+    def __call__(self, form, field):
+        if not field.data:
+            return  # Campo vazio é válido (use DataRequired se necessário)
+        
+        try:
+            uuid.UUID(str(field.data))
+        except (ValueError, TypeError):
+            raise ValidationError(self.message)

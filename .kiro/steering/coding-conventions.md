@@ -35,6 +35,7 @@ inclusion: always
 - Line length limit: 79 characters
 - Use type hints for all function parameters and return values
 - Import order: standard library, third-party, local imports
+- SHOULD use pathlib methods instead of os ones
 
 ### Naming Conventions
 
@@ -43,6 +44,13 @@ inclusion: always
 - **Constants**: `UPPER_SNAKE_CASE`
 - **Private methods**: `_leading_underscore`
 - **Database tables**: `snake_case` (plural nouns)
+
+### Database access
+
+- Anything greater than a simple select should be performed by a service in the service layer
+- Basic access SHOULD be performed by methods in the BasicRepositoryMixin class
+- Methods in the BasicRepositoryMixin SHOULD be used with the raise_if_not_found argument as True (use try/except for record not found)
+
 
 ## Flask-Specific Patterns
 
@@ -203,6 +211,8 @@ def test_movie_service_get_by_id(app, db_session):
 - Consider Redis for production caching needs
 
 ## Documentation Standards
+
+- All comments and docstring MUST be in pt-BR
 
 ### Docstrings
 

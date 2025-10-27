@@ -61,21 +61,34 @@
                     <div class="row">
                         <!-- Coluna do Elenco -->
                         <div class="col-md-6">
-                            <h5 class="mb-3">{{ render_icon('people-fill') }} Elenco</h5>
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5 class="mb-0">{{ render_icon('people-fill') }} Elenco</h5>
+                                {% if current_user.is_authenticated %}
+                                    <a href="{{ url_for('filme.adicionar_elenco', filme_id=filme.id) }}" class="btn btn-outline-primary btn-sm">
+                                        {{ render_icon('person-plus') }} Adicionar Elenco
+                                    </a>
+                                {% endif %}
+                            </div>
                             {% if elenco %}
                                 <div class="row">
-                                    {% for nome, personagem, creditado, id_ator in elenco %}
+                                    {% for elenco_item in elenco %}
+                                        {% if elenco_item|length == 5 %}
+                                            {% set nome, personagem, creditado, id_pessoa, atuacao_id = elenco_item %}
+                                        {% else %}
+                                            {% set nome, personagem, creditado, id_pessoa = elenco_item %}
+                                            {% set atuacao_id = '' %}
+                                        {% endif %}
                                         <div class="col-12 mb-3">
                                             <div class="d-flex align-items-start">
                                                 <!-- Foto da pessoa -->
-                                                <img src="{{ url_for('pessoa.pessoa_foto', pessoa_id=id_ator) }}"
+                                                <img src="{{ url_for('pessoa.pessoa_foto', pessoa_id=id_pessoa) }}"
                                                      alt="Foto de {{ nome }}"
                                                      class="rounded me-3"
                                                      style="width: 64px; height: 64px; object-fit: cover;">
-                                                <div>
+                                                <div class="flex-grow-1">
                                                     <!-- Nome da pessoa -->
                                                     <div>
-                                                        <a href="{{ url_for('pessoa.pessoa_detalhes', pessoa_id=id_ator) }}" class="text-decoration-none">
+                                                        <a href="{{ url_for('pessoa.pessoa_detalhes', pessoa_id=id_pessoa) }}" class="text-decoration-none">
                                                             <strong>{{ nome }}</strong>
                                                         </a>
                                                     </div>
@@ -86,6 +99,18 @@
                                                                 class="badge bg-warning text-dark">não creditado</span></small>
                                                     {% endif %}
                                                 </div>
+                                                {% if current_user.is_authenticated and atuacao_id %}
+                                                    <div class="btn-group btn-group-sm ms-2" role="group">
+                                                        <a href="{{ url_for('filme.editar_elenco', filme_id=filme.id, atuacao_id=atuacao_id) }}" 
+                                                           class="btn btn-outline-secondary btn-sm">
+                                                            {{ render_icon('pencil') }}
+                                                        </a>
+                                                        <a href="{{ url_for('filme.remover_elenco', filme_id=filme.id, atuacao_id=atuacao_id) }}" 
+                                                           class="btn btn-outline-danger btn-sm">
+                                                            {{ render_icon('trash') }}
+                                                        </a>
+                                                    </div>
+                                                {% endif %}
                                             </div>
                                         </div>
                                     {% endfor %}
@@ -97,10 +122,24 @@
 
                         <!-- Coluna da Equipe Técnica -->
                         <div class="col-md-6">
-                            <h5 class="mb-3">{{ render_icon('tools') }} Equipe Técnica</h5>
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h5 class="mb-0">{{ render_icon('tools') }} Equipe Técnica</h5>
+                                {% if current_user.is_authenticated %}
+                                    <a href="{{ url_for('filme.adicionar_equipe_tecnica', filme_id=filme.id) }}" class="btn btn-outline-primary btn-sm">
+                                        {{ render_icon('tools') }} Adicionar Equipe Técnica
+                                    </a>
+                                {% endif %}
+                            </div>
                             {% if equipe_tecnica %}
                                 <div class="row">
-                                    {% for funcao, nome, creditado, id_pessoa in equipe_tecnica %}
+                                    {% for equipe_item in equipe_tecnica %}
+                                        {% if equipe_item|length == 6 %}
+                                            {% set funcao, nome, creditado, id_pessoa, equipe_id, funcao_id = equipe_item %}
+                                        {% else %}
+                                            {% set funcao, nome, creditado, id_pessoa = equipe_item %}
+                                            {% set equipe_id = '' %}
+                                            {% set funcao_id = '' %}
+                                        {% endif %}
                                         <div class="col-12 mb-3">
                                             <div class="d-flex align-items-start">
                                                 <!-- Foto da pessoa -->
@@ -108,7 +147,7 @@
                                                      alt="Foto de {{ nome }}"
                                                      class="rounded me-3"
                                                      style="width: 64px; height: 64px; object-fit: cover;">
-                                                <div>
+                                                <div class="flex-grow-1">
                                                     <!-- Nome da pessoa -->
                                                     <div>
                                                         <a href="{{ url_for('pessoa.pessoa_detalhes', pessoa_id=id_pessoa) }}" class="text-decoration-none">
@@ -123,6 +162,18 @@
                                                                 class="badge bg-warning text-dark">não creditado</span></small>
                                                     {% endif %}
                                                 </div>
+                                                {% if current_user.is_authenticated and equipe_id %}
+                                                    <div class="btn-group btn-group-sm ms-2" role="group">
+                                                        <a href="{{ url_for('filme.editar_equipe_tecnica', filme_id=filme.id, equipe_id=equipe_id) }}" 
+                                                           class="btn btn-outline-secondary btn-sm">
+                                                            {{ render_icon('pencil') }}
+                                                        </a>
+                                                        <a href="{{ url_for('filme.remover_equipe_tecnica', filme_id=filme.id, equipe_id=equipe_id) }}" 
+                                                           class="btn btn-outline-danger btn-sm">
+                                                            {{ render_icon('trash') }}
+                                                        </a>
+                                                    </div>
+                                                {% endif %}
                                             </div>
                                         </div>
                                     {% endfor %}

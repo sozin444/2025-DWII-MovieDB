@@ -87,9 +87,11 @@ class AtorService:
             session = cls._default_session
 
         # Constrói a query base com join no Filme para ordenação
-        stmt = select(Atuacao). \
-            join(Filme, Atuacao.filme_id == Filme.id). \
-            where(Atuacao.ator_id == ator.id)
+        stmt = (
+            select(Atuacao)
+            .join(Filme, Atuacao.filme_id == Filme.id)
+            .where(Atuacao.ator_id == ator.id)
+        )
         if year_reverse:
             stmt = stmt.order_by(desc(Filme.ano_lancamento))
         else:

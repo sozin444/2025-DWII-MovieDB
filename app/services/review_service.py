@@ -7,9 +7,11 @@ Classes principais:
     - ReviewService: Serviço principal com métodos para operações de avaliações
 """
 from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import Optional, Tuple, Union
 from enum import Enum
+from uuid import UUID
 
+from flask import current_app
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
@@ -82,10 +84,10 @@ class ReviewService:
             session = cls._default_session
 
         # Query usando SQLAlchemy 2.x style
-        stmt = select(Avaliacao).where(
-            Avaliacao.filme_id == filme.id
-        ).order_by(
-            Avaliacao.created_at.desc()
+        stmt = (
+            select(Avaliacao)
+            .where(Avaliacao.filme_id == filme.id)
+            .order_by(Avaliacao.created_at.desc())
         )
         
         avaliacoes = session.execute(stmt).scalars().all()
@@ -115,9 +117,9 @@ class ReviewService:
             session = cls._default_session
 
         # Query usando SQLAlchemy 2.x style
-        stmt = select(Avaliacao).where(
-            Avaliacao.filme_id == filme.id,
-            Avaliacao.usuario_id == usuario.id
+        stmt = (
+            select(Avaliacao)
+            .where(Avaliacao.filme_id == filme.id, Avaliacao.usuario_id == usuario.id)
         )
         
         avaliacao = session.execute(stmt).scalar_one_or_none()
@@ -130,7 +132,8 @@ class ReviewService:
                                      nota: int,
                                      comentario: Optional[str] = None,
                                      recomendaria: bool = False,
-                                     session=None) -> ReviewResult:
+                                     session=None,
+                                     auto_commit: bool = True) -> ReviewResult:
         """Cria uma nova avaliação ou atualiza uma existente.
 
         Args:
@@ -140,6 +143,7 @@ class ReviewService:
             comentario (str, optional): Comentário opcional
             recomendaria (bool): Se o usuário recomendaria o filme
             session: Sessão SQLAlchemy opcional. Se None, usa a sessão padrão da classe.
+            auto_commit (bool): Se True, faz commit automático. Padrão True.
 
         Returns:
             ReviewResult: Resultado da operação com status e mensagem
@@ -159,8 +163,7 @@ class ReviewService:
         if not isinstance(nota, int) or nota < 0 or nota > 10:
             return ReviewResult(
                 status=ReviewOperationResult.VALIDATION_ERROR,
-                message="A nota deve ser um número inteiro entre 0 e 10.",
-                errors={"nota": ["Valor inválido"]}
+                message="A nota deve ser um número inteiro entre 0 e 10."
             )
 
         try:
@@ -173,7 +176,8 @@ class ReviewService:
                 avaliacao_existente.comentario = comentario
                 avaliacao_existente.recomendaria = recomendaria
 
-                session.commit()
+                if auto_commit:
+                    session.commit()
 
                 return ReviewResult(
                     status=ReviewOperationResult.UPDATED,
@@ -182,15 +186,15 @@ class ReviewService:
                 )
             else:
                 # Criar nova avaliação
-                nova_avaliacao = Avaliacao(
-                    filme_id=filme.id,
-                    usuario_id=usuario.id,
-                    nota=nota,
-                    comentario=comentario,
-                    recomendaria=recomendaria
-                )
+                nova_avaliacao = Avaliacao(filme_id=filme.id,
+                                           usuario_id=usuario.id,
+                                           nota=nota,
+                                           comentario=comentario,
+                                           recomendaria=recomendaria)
                 session.add(nova_avaliacao)
-                session.commit()
+
+                if auto_commit:
+                    session.commit()
 
                 return ReviewResult(
                     status=ReviewOperationResult.CREATED,
@@ -198,14 +202,22 @@ class ReviewService:
                     avaliacao=nova_avaliacao
                 )
 
-        except IntegrityError:
-            session.rollback()
+        except IntegrityError as e:
+            if auto_commit:
+                session.rollback()
+            current_app.logger.error("IntegrityError ao salvar avaliação para filme %s, "
+                                     "usuario %s" % (filme.id, usuario.id))
+            current_app.logger.error(str(e))
             return ReviewResult(
                 status=ReviewOperationResult.DATABASE_ERROR,
-                message="Erro de integridade no banco de dados. Tente novamente."
+                message="Erro interno na aplicação. Tente novamente."
             )
         except Exception as e:
-            session.rollback()
+            if auto_commit:
+                session.rollback()
+            current_app.logger.error("Exceção ao salvar avaliação para filme %s, "
+                                     "usuario %s" % (filme.id, usuario.id))
+            current_app.logger.error(str(e))
             return ReviewResult(
                 status=ReviewOperationResult.DATABASE_ERROR,
                 message="Erro inesperado ao salvar avaliação."
@@ -215,13 +227,15 @@ class ReviewService:
     def excluir_avaliacao(cls,
                           avaliacao_id,
                           usuario: User,
-                          session=None) -> ReviewResult:
+                          session=None,
+                          auto_commit: bool = True) -> ReviewResult:
         """Exclui uma avaliação do usuário.
 
         Args:
             avaliacao_id: ID da avaliação a ser excluída
             usuario (User): Usuário que está tentando excluir
             session: Sessão SQLAlchemy opcional. Se None, usa a sessão padrão da classe.
+            auto_commit (bool): Se True, faz commit automático. Padrão True.
 
         Returns:
             ReviewResult: Resultado da operação com status e mensagem
@@ -255,7 +269,8 @@ class ReviewService:
 
             # Excluir a avaliação
             session.delete(avaliacao)
-            session.commit()
+            if auto_commit:
+                session.commit()
 
             return ReviewResult(
                 status=ReviewOperationResult.DELETED,
@@ -263,7 +278,11 @@ class ReviewService:
             )
 
         except Exception as e:
-            session.rollback()
+            if auto_commit:
+                session.rollback()
+            current_app.logger.error("Exceção ao excluir avaliação %s por usuario %s"
+                                     % (avaliacao_id, usuario.id))
+            current_app.logger.error(str(e))
             return ReviewResult(
                 status=ReviewOperationResult.DATABASE_ERROR,
                 message="Erro ao excluir avaliação."
@@ -271,19 +290,30 @@ class ReviewService:
 
     @classmethod
     def obter_avaliacao_por_id(cls,
-                               avaliacao_id,
+                               avaliacao_id: Union[str, UUID],
                                session=None) -> Optional[Avaliacao]:
         """Retorna uma avaliação pelo ID.
 
         Args:
-            avaliacao_id: ID da avaliação
+            avaliacao_id (Union[str, UUID]): ID da avaliação (aceita string ou UUID)
             session: Sessão SQLAlchemy opcional. Se None, usa a sessão padrão da classe.
 
         Returns:
             Avaliacao or None: Objeto Avaliacao se encontrado, None caso contrário.
+
+        Raises:
+            ValueError: Se avaliacao_id for uma string inválida de UUID
         """
         if session is None:
             session = cls._default_session
+
+        # Converter string para UUID se necessário
+        if isinstance(avaliacao_id, str):
+            try:
+                avaliacao_id = UUID(avaliacao_id)
+            except ValueError:
+                current_app.logger.error("ID de avaliação inválido: %s" % avaliacao_id)
+                raise ValueError(f"ID de avaliação inválido: {avaliacao_id}")
 
         # Query usando SQLAlchemy 2.x style
         stmt = select(Avaliacao).where(Avaliacao.id == avaliacao_id)

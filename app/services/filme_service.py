@@ -12,6 +12,7 @@ import uuid
 from dataclasses import dataclass
 from typing import Optional
 
+from flask import current_app
 from sqlalchemy import desc, func, Integer, select
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -41,7 +42,6 @@ class FilmeOperationResult:
     success: bool
     message: str
     filme: Optional[Filme] = None
-    errors: Optional[dict] = None
 
 
 class FilmeService:
@@ -83,12 +83,12 @@ class FilmeService:
             session = cls._default_session
 
         # Query para agregar estatísticas das avaliações
-        stmt = select(
-                func.avg(Avaliacao.nota).label('nota_media'),
+        stmt = (
+            select(func.avg(Avaliacao.nota).label('nota_media'),
                 func.count(Avaliacao.id).label('total_avaliacoes'),
-                func.sum(func.cast(Avaliacao.recomendaria, Integer)).label('total_recomendacoes')
-        ).where(Avaliacao.filme_id == filme.id)
-
+                func.sum(func.cast(Avaliacao.recomendaria, Integer)).label('total_recomendacoes'))
+            .where(Avaliacao.filme_id == filme.id)
+        )
         resultado = session.execute(stmt).one()
 
         # Extrai os valores do resultado
@@ -140,6 +140,7 @@ class FilmeService:
                      creditado: bool = True,
                      nao_creditado: bool = True,
                      usar_nome_artistico: bool = True,
+                     incluir_atuacao_id: bool = False,
                      session=None) -> list:
         """Retorna lista de atores e personagens do filme.
 
@@ -149,15 +150,21 @@ class FilmeService:
             nao_creditado (bool): Se True, inclui atuações não creditadas. Default: True
             usar_nome_artistico (bool): Se True, usa o nome artístico do ator se disponível.
                                         Caso contrário, usa o nome real. Default: True
+            incluir_atuacao_id (bool): Se True, inclui o ID da atuação. Default: False
             session: Sessão SQLAlchemy opcional. Se None, usa a sessão padrão da classe.
 
         Returns:
             list: Lista de tuplas com estrutura:
+                Sem incluir_atuacao_id:
                 [
                     ('Christian Bale', 'Batman', True, 21040b96-4794-41a7-9253-f135743ce482),
                         # (nome_ator, personagem, creditado, id_ator)
-                    ('Christian Bale', 'Bruce Wayne', True, 21040b96-4794-41a7-9253-f135743ce482),
-                    ('Debbi Burns', 'Bank Patron', False, 5c3f1e2e-3f4e-4d2a-9f4b-2e5f6c7d8e9f),
+                    ...
+                ]
+                Com incluir_atuacao_id:
+                [
+                    ('Christian Bale', 'Batman', True, 21040b96-4794-41a7-9253-f135743ce482, ac6da361-6ccd-42f6-8ba4-004eeed10784),
+                        # (nome_ator, personagem, creditado, id_ator, id_atuacao)
                     ...
                 ]
                 Ordenada por tempo_de_tela_minutos (decrescente) + ordem alfabética do nome.
@@ -184,10 +191,12 @@ class FilmeService:
             session = cls._default_session
 
         # Constrói a query base com joins para acessar o nome do ator
-        stmt = select(Atuacao). \
-            join(Atuacao.ator). \
-            join(Ator.pessoa). \
-            where(Atuacao.filme_id == filme.id)
+        stmt = (
+            select(Atuacao)
+            .join(Atuacao.ator)
+            .join(Ator.pessoa)
+            .where(Atuacao.filme_id == filme.id)
+        )
 
         # Aplica filtros de creditado usando função utilitária
         stmt = aplicar_filtro_creditado(stmt, Atuacao.creditado, creditado, nao_creditado)
@@ -198,15 +207,26 @@ class FilmeService:
         # Executa a query
         resultado = session.execute(stmt).scalars().all()
 
-        # Monta a lista de tuplas (nome_ator, personagem, creditado)
-        elenco = [
-            (atuacao.ator.nome_artistico if usar_nome_artistico and atuacao.ator.nome_artistico
-             else atuacao.ator.pessoa.nome,
-             atuacao.personagem,
-             atuacao.creditado,
-             atuacao.ator.pessoa.id)
-            for atuacao in resultado
-        ]
+        # Monta a lista de tuplas (nome_ator, personagem, creditado, id_ator[, id_atuacao])
+        if incluir_atuacao_id:
+            elenco = [
+                (atuacao.ator.nome_artistico if usar_nome_artistico and atuacao.ator.nome_artistico
+                 else atuacao.ator.pessoa.nome,
+                 atuacao.personagem,
+                 atuacao.creditado,
+                 atuacao.ator.pessoa.id,
+                 atuacao.id)
+                for atuacao in resultado
+            ]
+        else:
+            elenco = [
+                (atuacao.ator.nome_artistico if usar_nome_artistico and atuacao.ator.nome_artistico
+                 else atuacao.ator.pessoa.nome,
+                 atuacao.personagem,
+                 atuacao.creditado,
+                 atuacao.ator.pessoa.id)
+                for atuacao in resultado
+            ]
 
         return elenco
 
@@ -216,6 +236,7 @@ class FilmeService:
                              creditado: bool = True,
                              nao_creditado: bool = True,
                              funcoes: list = None,
+                             incluir_equipe_id: bool = False,
                              session=None) -> list:
         """Retorna lista de pessoas e funções técnicas da equipe do filme.
 
@@ -225,15 +246,21 @@ class FilmeService:
             nao_creditado (bool): Se True, inclui funções não creditadas. Default: True
             funcoes (list[FuncaoTecnica]): Lista opcional de funções técnicas para filtrar.
                                           Se None, retorna todas as funções. Default: None
+            incluir_equipe_id (bool): Se True, inclui o ID da equipe técnica. Default: False
             session: Sessão SQLAlchemy opcional. Se None, usa a sessão padrão da classe.
 
         Returns:
             list: Lista de tuplas com estrutura:
+                Sem incluir_equipe_id:
                 [
                     ('Diretor', 'Christopher Nolan', True, d3ebd0ba-f5e9-412f-8f4a-4c21e1cd5ff1),
                        # (nome_funcao, nome_pessoa, creditado, id_pessoa)
-                    ('Produtor', 'Emma Thomas', True, 7a1c2e3d-8f4b-4c5d-9e6f-1a2b3c4d5e6f),
-                    ('Roteirista', 'Christopher Nolan', True, d3ebd0ba-f5e9-412f-8f4a-4c21e1cd5ff1),
+                    ...
+                ]
+                Com incluir_equipe_id:
+                [
+                    ('Diretor', 'Christopher Nolan', True, d3ebd0ba-f5e9-412f-8f4a-4c21e1cd5ff1, equipe_uuid, funcao_uuid),
+                       # (nome_funcao, nome_pessoa, creditado, id_pessoa, id_equipe, id_funcao)
                     ...
                 ]
                 Ordenada por nome da função (alfabética).
@@ -262,10 +289,12 @@ class FilmeService:
             session = cls._default_session
 
         # Constrói a query base com joins para acessar nome da pessoa e da função
-        stmt = select(EquipeTecnica). \
-            join(EquipeTecnica.pessoa). \
-            join(EquipeTecnica.funcao_tecnica). \
-            where(EquipeTecnica.filme_id == filme.id)
+        stmt = (
+            select(EquipeTecnica)
+            .join(EquipeTecnica.pessoa)
+            .join(EquipeTecnica.funcao_tecnica)
+            .where(EquipeTecnica.filme_id == filme.id)
+        )
 
         # Aplica filtros de creditado usando função utilitária
         stmt = aplicar_filtro_creditado(stmt, EquipeTecnica.creditado, creditado, nao_creditado)
@@ -281,14 +310,25 @@ class FilmeService:
         # Executa a query
         resultado = session.execute(stmt).scalars().all()
 
-        # Monta a lista de tuplas (nome_funcao, nome_pessoa, creditado, id_pessoa)
-        equipe = [
-            (equipe_membro.funcao_tecnica.nome,
-             equipe_membro.pessoa.nome,
-             equipe_membro.creditado,
-             equipe_membro.pessoa.id)
-            for equipe_membro in resultado
-        ]
+        # Monta a lista de tuplas (nome_funcao, nome_pessoa, creditado, id_pessoa[, id_equipe, id_funcao])
+        if incluir_equipe_id:
+            equipe = [
+                (equipe_membro.funcao_tecnica.nome,
+                 equipe_membro.pessoa.nome,
+                 equipe_membro.creditado,
+                 equipe_membro.pessoa.id,
+                 equipe_membro.id,
+                 equipe_membro.funcao_tecnica.id)
+                for equipe_membro in resultado
+            ]
+        else:
+            equipe = [
+                (equipe_membro.funcao_tecnica.nome,
+                 equipe_membro.pessoa.nome,
+                 equipe_membro.creditado,
+                 equipe_membro.pessoa.id)
+                for equipe_membro in resultado
+            ]
 
         return equipe
 
@@ -382,13 +422,16 @@ class FilmeService:
             )
 
         except SQLAlchemyError as e:
-            session.rollback()
-            raise FilmeServiceError(
-                f"Database error in {cls.__name__}.create_filme: {str(e)}") from e
+            if auto_commit:
+                session.rollback()
+            current_app.logger.error("Erro de banco de dados: %s", str(e))
+            raise FilmeServiceError from e
         except Exception as e:
-            session.rollback()
-            raise FilmeServiceError(
-                f"Unexpected error in {cls.__name__}.create_filme: {str(e)}") from e
+            if auto_commit:
+                session.rollback()
+            current_app.logger.error("Erro inesperado: %s", str(e))
+            raise FilmeServiceError from e
+
 
     @classmethod
     def update_filme(cls,
@@ -421,8 +464,7 @@ class FilmeService:
             except Filme.RecordNotFoundError:
                 return FilmeOperationResult(
                         success=False,
-                        message="Filme não encontrado",
-                        errors={'filme_id': 'Filme não existe'}
+                        message="Filme não encontrado"
                 )
 
             # Aplica atributos básicos
@@ -439,15 +481,16 @@ class FilmeService:
                     message="Filme atualizado com sucesso",
                     filme=filme
             )
-
         except SQLAlchemyError as e:
-            session.rollback()
-            raise FilmeServiceError(
-                f"Database error in {cls.__name__}.update_filme: {str(e)}") from e
+            if auto_commit:
+                session.rollback()
+            current_app.logger.error("Erro de banco de dados: %s", str(e))
+            raise FilmeServiceError from e
         except Exception as e:
-            session.rollback()
-            raise FilmeServiceError(
-                f"Unexpected error in {cls.__name__}.update_filme: {str(e)}") from e
+            if auto_commit:
+                session.rollback()
+            current_app.logger.error("Erro inesperado: %s", str(e))
+            raise FilmeServiceError from e
 
     @classmethod
     def delete_filme(cls,
@@ -478,8 +521,7 @@ class FilmeService:
             except Filme.RecordNotFoundError:
                 return FilmeOperationResult(
                         success=False,
-                        message="Filme não encontrado",
-                        errors={'filme_id': 'Filme não existe'}
+                        message="Filme não encontrado"
                 )
 
             filme_title = filme.titulo_original
@@ -496,13 +538,15 @@ class FilmeService:
             )
 
         except SQLAlchemyError as e:
-            session.rollback()
-            raise FilmeServiceError(
-                f"Database error in {cls.__name__}.delete_filme: {str(e)}") from e
+            if auto_commit:
+                session.rollback()
+            current_app.logger.error("Erro de banco de dados: %s", str(e))
+            raise FilmeServiceError from e
         except Exception as e:
-            session.rollback()
-            raise FilmeServiceError(
-                f"Unexpected error in {cls.__name__}.delete_filme: {str(e)}") from e
+            if auto_commit:
+                session.rollback()
+            current_app.logger.error("Erro inesperado: %s", str(e))
+            raise FilmeServiceError from e
 
     @classmethod
     def obter_genero_ids(cls,
@@ -529,23 +573,25 @@ class FilmeService:
             return genero_ids
 
         except SQLAlchemyError as e:
-            raise FilmeServiceError(
-                f"Database error in {cls.__name__}.obter_genero_ids: {str(e)}") from e
+            current_app.logger.error("Erro de banco de dados: %s", str(e))
+            raise FilmeServiceError from e
         except Exception as e:
-            raise FilmeServiceError(
-                f"Unexpected error in {cls.__name__}.obter_genero_ids: {str(e)}") from e
+            current_app.logger.error("Erro inesperado: %s", str(e))
+            raise FilmeServiceError from e
 
     @classmethod
     def update_filme_generos(cls,
                              filme: Filme,
                              genero_ids: list[uuid.UUID | str],
-                             session=None):
+                             session=None,
+                             auto_commit: bool = False) -> None:
         """Gerencia as associações de gêneros de um filme.
 
         Args:
             filme: Instância do filme para atualizar os gêneros
             genero_ids: Lista de UUIDs de gêneros (como UUID ou string) para associar ao filme
             session: Sessão SQLAlchemy opcional. Se None, usa a sessão padrão da classe.
+            auto_commit: Se deve fazer auto-commit da transação. Default: False
 
         Raises:
             FilmeServiceError: Quando ocorre erro na operação
@@ -579,9 +625,16 @@ class FilmeService:
                     filme_genero = FilmeGenero(filme_id=filme.id, genero_id=genero_id)
                     session.add(filme_genero)
 
+            if auto_commit:
+                session.commit()
+
         except SQLAlchemyError as e:
-            raise FilmeServiceError(
-                f"Database error in {cls.__name__}.update_filme_generos: {str(e)}") from e
+            if auto_commit:
+                session.rollback()
+            current_app.logger.error("Erro de banco de dados: %s", str(e))
+            raise FilmeServiceError from e
         except Exception as e:
-            raise FilmeServiceError(
-                f"Unexpected error in {cls.__name__}.update_filme_generos: {str(e)}") from e
+            if auto_commit:
+                session.rollback()
+            current_app.logger.error("Erro inesperado: %s", str(e))
+            raise FilmeServiceError from e

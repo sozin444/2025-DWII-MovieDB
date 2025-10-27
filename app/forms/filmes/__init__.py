@@ -9,7 +9,8 @@ from wtforms.fields.simple import BooleanField, SubmitField, TextAreaField
 from wtforms.validators import DataRequired, InputRequired, Length, NumberRange, \
     Optional as OptionalValidator
 
-from ..validators import CampoImutavel, PositiveDecimalValidator, YearRangeValidator, \
+from ..validators import CampoImutavel, PositiveDecimalValidator, UUIDValidator, \
+    YearRangeValidator, \
     YouTubeURLValidator
 from ...services.imageprocessing_service import ImageProcessingService
 
@@ -225,26 +226,28 @@ class FilmeDeleteForm(FlaskForm):
 
     filme_id = HiddenField('ID do Filme',
                            validators=[CampoImutavel('id')]
-    )
+                           )
 
     confirm_title = StringField(label="",
                                 validators=[
-                                    DataRequired(message="É necessário digitar o título para confirmar a exclusão")
+                                    DataRequired(
+                                        message="É necessário digitar o título para confirmar a "
+                                                "exclusão")
                                 ],
                                 render_kw={
                                     'placeholder' : 'Digite o título original do filme',
                                     'class'       : 'form-control',
                                     'autocomplete': 'off'
                                 }
-    )
+                                )
 
     submit = SubmitField('Confirmar Exclusão',
                          render_kw={'class': 'btn btn-danger'}
-    )
+                         )
 
     cancel = SubmitField('Cancelar',
                          render_kw={'class': 'btn btn-secondary', 'formnovalidate': True}
-    )
+                         )
 
     def __init__(self, obj=None, **kwargs):
         """
@@ -279,3 +282,203 @@ class FilmeDeleteForm(FlaskForm):
             raise ValidationError(
                     f"O título digitado não confere. Digite exatamente: {original_title}"
             )
+
+
+class AdicionarElencoForm(FlaskForm):
+    """
+    Formulário para adicionar membros do elenco a um filme.
+    
+    Permite selecionar uma pessoa e definir o personagem que ela interpreta.
+    """
+
+    pessoa_id = HiddenField(
+            'ID da Pessoa',
+            validators=[
+                DataRequired(message="É obrigatório selecionar uma pessoa"),
+                UUIDValidator(message="ID da pessoa inválido")
+            ]
+    )
+
+    personagem = StringField(
+            'Personagem',
+            validators=[
+                DataRequired(message="É obrigatório informar o nome do personagem"),
+                Length(max=100, message="O nome do personagem deve ter no máximo 100 caracteres")
+            ],
+            render_kw={
+                'placeholder': 'Digite o nome do personagem',
+                'class'      : 'form-control'
+            }
+    )
+
+    creditado = BooleanField(
+            'Creditado no filme?',
+            default=True
+    )
+
+    tempo_de_tela_minutos = IntegerField(
+            'Tempo de tela (minutos)',
+            validators=[
+                OptionalValidator(),
+                NumberRange(min=1, message="O tempo de tela deve ser um número positivo")
+            ],
+            render_kw={
+                'placeholder': 'Ex: 90',
+                'class'      : 'form-control',
+                'min'        : '1'
+            }
+    )
+
+    submit = SubmitField(
+            'Adicionar ao Elenco',
+            render_kw={'class': 'btn btn-primary'}
+    )
+
+
+class EditarElencoForm(FlaskForm):
+    """
+    Formulário para editar membros do elenco de um filme.
+
+    Permite alterar a pessoa e/ou o personagem de uma atuação existente.
+    """
+
+    pessoa_id = HiddenField(
+            'ID da Pessoa',
+            validators=[
+                DataRequired(message="É obrigatório selecionar uma pessoa"),
+                UUIDValidator(message="ID da pessoa inválido"),
+                CampoImutavel('pessoa_id')
+            ]
+    )
+
+    personagem = StringField(
+            'Personagem',
+            validators=[
+                DataRequired(message="É obrigatório informar o nome do personagem"),
+                Length(max=100, message="O nome do personagem deve ter no máximo 100 caracteres")
+            ],
+            render_kw={
+                'placeholder': 'Digite o nome do personagem',
+                'class'      : 'form-control'
+            }
+    )
+
+    creditado = BooleanField(
+            'Creditado no filme?',
+            default=True
+    )
+
+    tempo_de_tela_minutos = IntegerField(
+            'Tempo de tela (minutos)',
+            validators=[
+                OptionalValidator(),
+                NumberRange(min=1, message="O tempo de tela deve ser um número positivo")
+            ],
+            render_kw={
+                'placeholder': 'Ex: 90',
+                'class'      : 'form-control',
+                'min'        : '1'
+            }
+    )
+
+    submit = SubmitField(
+            'Salvar Alterações',
+            render_kw={'class': 'btn btn-primary'}
+    )
+
+    def __init__(self, obj=None, **kwargs):
+        """
+        Initialize the form with optional object for editing.
+
+        Args:
+            obj: Optional Atuacao object for editing (sets reference_obj for validation)
+            **kwargs: Additional form arguments
+        """
+        super().__init__(**kwargs)
+        self.reference_obj = obj
+
+
+class AdicionarEquipeTecnicaForm(FlaskForm):
+    """
+    Formulário para adicionar membros da equipe técnica a um filme.
+    
+    Permite selecionar uma pessoa e definir sua função técnica no filme.
+    """
+
+    pessoa_id = HiddenField(
+            'ID da Pessoa',
+            validators=[
+                DataRequired(message="É obrigatório selecionar uma pessoa"),
+                UUIDValidator(message="ID da pessoa inválido")
+            ]
+    )
+
+    funcao_tecnica_id = SelectField(
+            'Função Técnica',
+            validators=[
+                DataRequired(message="É obrigatório selecionar uma função técnica")
+            ],
+            coerce=str,
+            render_kw={
+                'class': 'form-select'
+            }
+    )
+
+    creditado = BooleanField(
+            'Creditado no filme?',
+            default=True
+    )
+
+    submit = SubmitField(
+            'Adicionar à Equipe Técnica',
+            render_kw={'class': 'btn btn-primary'}
+    )
+
+
+class EditarEquipeTecnicaForm(FlaskForm):
+    """
+    Formulário para editar membros da equipe técnica de um filme.
+    
+    Permite alterar a pessoa e/ou a função técnica de um membro da equipe.
+    """
+
+    pessoa_id = HiddenField(
+            'ID da Pessoa',
+            validators=[
+                DataRequired(message="É obrigatório selecionar uma pessoa"),
+                UUIDValidator(message="ID da pessoa inválido"),
+                CampoImutavel('pessoa_id')
+            ]
+    )
+
+    funcao_tecnica_id = SelectField(
+            'Função Técnica',
+            validators=[
+                DataRequired(message="É obrigatório selecionar uma função técnica")
+            ],
+            coerce=str,
+            render_kw={
+                'class': 'form-select'
+            }
+    )
+
+    creditado = BooleanField(
+            'Creditado no filme?',
+            default=True
+    )
+
+    submit = SubmitField(
+            'Salvar Alterações',
+            render_kw={'class': 'btn btn-primary'}
+    )
+
+    def __init__(self, obj=None, **kwargs):
+        """
+        Initialize the form with optional object for editing.
+
+        Args:
+            obj: Optional EquipeTecnica object for editing (sets reference_obj for validation)
+            **kwargs: Additional form arguments
+        """
+        super().__init__(**kwargs)
+        self.reference_obj = obj

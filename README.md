@@ -1,6 +1,6 @@
 # MyMovieDB
 
-Sistema de gerenciamento de filmes com autenticação completa de usuários.
+Sistema completo de gerenciamento de banco de dados de filmes com autenticação segura de usuários, cadastro de filmes e pessoas, sistema de avaliações e navegação interativa entre entidades.
 
 ## Funcionalidades
 
@@ -18,7 +18,68 @@ Sistema de gerenciamento de filmes com autenticação completa de usuários.
 - **Geração automática de avatar** redimensionado
 - **Identicons automáticos** gerados baseados no email quando usuário não tem foto
 - **Edição de nome** de usuário
+- **Visualização de avaliações próprias** na página de perfil
+  - Lista ordenada por título do filme
+  - Exibição com poster do filme em miniatura
+  - Links diretos para detalhes dos filmes avaliados
+  - Funcionalidade "Ver mais/menos" para grandes listas
 - Email imutável após registro (por segurança)
+
+### Gerenciamento de Filmes
+- **CRUD completo de filmes** (Create, Read, Update, Delete):
+  - Cadastro com informações detalhadas (título original, título em português, ano, duração, sinopse, orçamento, faturamento)
+  - Upload e gerenciamento de posters
+  - Link para trailers do YouTube
+  - Associação de múltiplos gêneros via autocomplete
+  - Validação de dados (ano entre 1800 e futuro próximo, URLs válidas, etc.)
+- **Navegação e descoberta**:
+  - Listagem paginada de filmes
+  - Busca e filtros
+  - Função "Filme Aleatório" para descobrir novos títulos
+  - Visualização detalhada com todas as informações do filme
+- **Elenco e equipe técnica**:
+  - Associação de atores com personagens
+  - Identificação de protagonistas
+  - Marcação de créditos/não-créditos
+  - Tempo de tela por ator
+  - Equipe técnica completa (diretor, roteirista, fotografia, etc.)
+  - Links para perfis de pessoas
+
+### Gerenciamento de Pessoas
+- **CRUD completo de pessoas** (atores, diretores, equipe técnica):
+  - Informações biográficas (nome, datas, local de nascimento, biografia)
+  - Upload de fotos de perfil
+  - Nome artístico para atores
+  - Validação de unicidade (nome + data de nascimento)
+  - Proteção contra deleção quando há relacionamentos com filmes
+- **Navegação e busca**:
+  - Listagem pública paginada
+  - Busca por nome ou nome artístico
+  - Acesso público para visualização, autenticação para edição
+- **Página de detalhes de pessoa**:
+  - Informações biográficas completas
+  - Filmografia como ator (com personagens interpretados)
+  - Participação em equipes técnicas (com funções desempenhadas)
+  - Ordenação cronológica de trabalhos
+  - Links bidirecionais com páginas de filmes
+
+### Sistema de Avaliações
+- **Avaliação de filmes por usuários**:
+  - Nota de 0 a 10
+  - Comentário opcional (até 4096 caracteres)
+  - Marcação de recomendação
+  - Uma avaliação por usuário por filme
+  - Edição e exclusão de avaliações próprias
+- **Estatísticas e visualização**:
+  - Nota média do filme
+  - Total de avaliações
+  - Percentual de recomendações
+  - Distribuição de notas
+  - Listagem de todas as avaliações com paginação
+- **Integração com perfil**:
+  - Histórico de avaliações do usuário
+  - Navegação rápida para filmes avaliados
+  - Permanência na página após avaliar/excluir
 
 ### Segurança
 - **Autenticação de Dois Fatores (2FA/TOTP)**:
@@ -35,6 +96,10 @@ Sistema de gerenciamento de filmes com autenticação completa de usuários.
 - **Tokens JWT** com expiração para validação e reset
 - **Normalização de emails** para evitar duplicatas
 - **Criptografia de dados sensíveis** no banco de dados (segredos 2FA)
+- **Controle de acesso baseado em autenticação**:
+  - Operações de escrita requerem autenticação
+  - Leitura pública de filmes e pessoas
+  - Proteção de avaliações (edição/exclusão apenas do próprio usuário)
 
 ### Email
 - **Suporte a múltiplos provedores**:
