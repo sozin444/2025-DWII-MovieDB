@@ -108,7 +108,7 @@ Para utilizar um arquivo de configuração diferente, especifique o nome do arqu
   - `5242880` (5 MB - padrão)
 
 #### `MAX_IMAGE_DIMENSIONS` (opcional)
-- **Tipo**: Array com 2 integers [largura, altura]
+- **Tipo**: Array com 2 inteiros [largura, altura]
 - **Padrão**: `[2048, 2048]`
 - **Descrição**: Dimensões máximas permitidas para imagens, em pixels (largura x altura). Imagens maiores serão rejeitadas
 - **Exemplo**: `[4096, 4096]`
@@ -134,7 +134,7 @@ Para utilizar um arquivo de configuração diferente, especifique o nome do arqu
   - PostgreSQL: `"postgresql://user:password@localhost/dbname"`
   - MySQL: `"mysql://user:password@localhost/dbname"`
 
-#### `MAX_PER_PAGE`
+#### `MAX_PER_PAGE` (opcional)
 - **Tipo**: Integer
 - **Padrão**: `500`
 - **Descrição**: Número máximo de itens por página em paginação

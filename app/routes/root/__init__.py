@@ -1,5 +1,7 @@
 from flask import Blueprint, render_template, request, current_app
 
+from app.models.filme import Filme
+from app.models.pessoa import Pessoa
 from app.services.search_service import SearchService, SearchServiceError
 
 root_bp = Blueprint('root',
@@ -17,8 +19,14 @@ def index():
     Returns:
         str: Página HTML da página principal.
     """
+    # Obtém a contagem de filmes e pessoas cadastrados
+    total_filmes = Filme.count_all()
+    total_pessoas = Pessoa.count_all()
+
     return render_template("root/index.jinja2",
-                           title="Página principal")
+                           title="Página principal",
+                           total_filmes=total_filmes,
+                           total_pessoas=total_pessoas)
 
 
 @root_bp.route("/buscar")
