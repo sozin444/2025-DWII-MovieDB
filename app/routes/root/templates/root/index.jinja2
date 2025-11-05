@@ -1,1 +1,53 @@
 {% extends "_layout.jinja2" %}
+
+{% block content %}
+<div class="container-fluid mt-5 pt-4">
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-8 col-lg-6 text-center">
+            <div class="card border-0 bg-transparent">
+                <div class="card-body">
+                    <h1 class="display-4 text-primary mb-4">Bem-vindo ao myMovieDB</h1>
+                    <p class="lead text-muted mb-4">Sua biblioteca pessoal de filmes e pessoas do cinema</p>
+                    
+                    <!-- Message pointing to search box -->
+                    <div class="alert alert-info border-0 bg-light-subtle d-flex align-items-center justify-content-center" role="alert">
+                        <div class="me-3">
+                            <i class="bi bi-arrow-up-circle-fill text-primary" style="font-size: 1.5rem;"></i>
+                        </div>
+                        <div>
+                            <strong>Comece buscando por algo...</strong>
+                            <br>
+                            <small class="text-muted">Use a caixa de busca acima para encontrar filmes ou pessoas</small>
+                        </div>
+                    </div>
+                    
+                    <!-- Quick stats or features could go here -->
+                    <div class="row mt-5">
+                        <div class="col-md-4 mb-3">
+                            <div class="text-center">
+                                <i class="bi bi-film text-primary" style="font-size: 2rem;"></i>
+                                <h5 class="mt-2">Filmes</h5>
+                                <p class="text-muted small">Descubra e avalie seus filmes favoritos</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="text-center">
+                                <i class="bi bi-people-fill text-primary" style="font-size: 2rem;"></i>
+                                <h5 class="mt-2">Pessoas</h5>
+                                <p class="text-muted small">Explore atores, diretores e equipe técnica</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <div class="text-center">
+                                <i class="bi bi-star-fill text-primary" style="font-size: 2rem;"></i>
+                                <h5 class="mt-2">Avaliações</h5>
+                                <p class="text-muted small">Compartilhe suas opiniões e descobertas</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
