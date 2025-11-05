@@ -13,7 +13,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 from flask import current_app
-from sqlalchemy import desc, func, Integer, select
+from sqlalchemy import desc, func, Integer, or_, select
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.infra.modulos import db
@@ -133,6 +133,69 @@ class FilmeService:
                                 total_recomendacoes=total_recomendacoes,
                                 percentual_recomendacoes=round(percentual_recomendacoes, 2),
                                 distribuicao_notas=distribuicao_notas)
+
+    @classmethod
+    def listar_filmes(cls,
+                      page: int = 1,
+                      per_page: int = 24,
+                      search: str = None,
+                      session=None):
+        """Lista filmes com paginação e busca por título.
+
+        Args:
+            page (int): Número da página (começa em 1). Default: 1
+            per_page (int): Número de registros por página. Default: 24
+            search (str): Termo de busca para filtrar por título (original ou português). Default: None
+            session: Sessão SQLAlchemy opcional. Se None, usa a sessão padrão da classe.
+
+        Returns:
+            Pagination: Objeto de paginação do Flask-SQLAlchemy contendo:
+                - items: Lista de objetos Filme
+                - page: Página atual
+                - pages: Total de páginas
+                - per_page: Registros por página
+                - total: Total de registros
+                - has_next: Se há próxima página
+                - has_prev: Se há página anterior
+
+        Examples:
+            >>> # Listar primeira página
+            >>> resultado = FilmeService.listar_filmes()
+            >>> filmes = resultado.items
+
+            >>> # Buscar por título
+            >>> resultado = FilmeService.listar_filmes(search="Matrix")
+
+            >>> # Página específica
+            >>> resultado = FilmeService.listar_filmes(page=2, per_page=48)
+        """
+        if session is None:
+            session = cls._default_session
+
+        # Constrói statement base ordenado por ano de lançamento (mais recente primeiro)
+        stmt = (
+            select(Filme)
+            .order_by(desc(Filme.ano_lancamento), Filme.titulo_original)
+        )
+
+        # Aplica filtro de busca se fornecido
+        # Busca tanto em titulo_original quanto em titulo_portugues
+        if search and search.strip():
+            search_term = f"%{search.strip()}%"
+            stmt = stmt.where(
+                    or_(
+                            Filme.titulo_original.ilike(search_term),
+                            Filme.titulo_portugues.ilike(search_term)
+                    )
+            )
+
+        # Aplica paginação usando db.paginate com statement
+        return db.paginate(
+                stmt,
+                page=page,
+                per_page=per_page,
+                error_out=False
+        )
 
     @classmethod
     def obter_elenco(cls,

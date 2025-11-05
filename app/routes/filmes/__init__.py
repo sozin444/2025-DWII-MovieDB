@@ -243,30 +243,41 @@ def detail_filme(filme_id):
 
 @filme_bp.route('/', methods=['GET'])
 def listar_filmes():
-    """Apresenta um mosaico de posteres de filmes com link para detalhes do filme
+    """Lista filmes com paginação e busca por título.
+
+    Parâmetros de query string:
+        page (int): Número da página (padrão: 1)
+        per_page (int): Registros por página (padrão: 24)
+        search (str): Termo de busca para filtrar por título
 
     Returns:
-        Template renderizado com mosaico de posteres paginados
+        Template renderizado com lista paginada de filmes
     """
-    from sqlalchemy import func
+    # Obter parâmetros da query string
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 24, type=int)
+    search = request.args.get('search', '', type=str)
 
-    # Aplicar ordenação aleatória na query
-    # Como o CrudService não suporta func.random(), vamos fazer uma query customizada
-    stmt = select(Filme).order_by(func.random()).limit(24)
-    filmes = db.session.execute(stmt).scalars().all()
+    # Limitar per_page para evitar sobrecarga
+    per_page = min(per_page, 100)
 
-    # Calcular estatísticas para cada filme
-    filmes_com_stats = []
-    for filme in filmes:
-        stats = FilmeService.obter_estatisticas_avaliacoes(filme)
-        filmes_com_stats.append({
-            'filme': filme,
-            'stats': stats
-        })
+    try:
+        # Obter filmes paginados usando o serviço
+        pagination = FilmeService.listar_filmes(
+            page=page,
+            per_page=per_page,
+            search=search if search.strip() else None
+        )
 
-    return render_template('filme/web/lista.jinja2',
-                           title="Lista de Filmes",
-                           filmes_com_stats=filmes_com_stats)
+        return render_template('filme/web/lista.jinja2',
+                             title="Lista de Filmes",
+                             pagination=pagination,
+                             search=search,
+                             per_page=per_page)
+
+    except Exception as e:
+        current_app.logger.error(f"Erro ao listar filmes: {str(e)}")
+        abort(500)
 
 
 @filme_bp.route('/create', methods=['GET', 'POST'])
