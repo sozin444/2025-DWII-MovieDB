@@ -39,7 +39,9 @@
                         </a>
                         <ul class="dropdown-menu" aria-labelledby="filmesDropdown">
                             <li><a class="dropdown-item" href="{{ url_for('filme.listar_filmes') }}">Lista</a></li>
-                            <li><a class="dropdown-item" href="#">Adicionar filme</a></li>
+                            {% if current_user.is_authenticated %}
+                            <li><a class="dropdown-item" href="{{ url_for('filme.create_filme') }}">Adicionar filme</a></li>
+                            {% endif %}
                         </ul>
                     </li>
 
@@ -68,12 +70,7 @@
                         <ul class="dropdown-menu" aria-labelledby="pessoasDropdown">
                             <li><a class="dropdown-item" href="{{ url_for('pessoa.pessoa_list') }}">{{ render_icon('list-ul') }} Lista</a>
                             </li>
-                            <li><a class="dropdown-item" href="#">{{ render_icon('camera-reels') }} Atores</a></li>
-                            <li><a class="dropdown-item" href="#">{{ render_icon('tools') }} Equipe técnica</a></li>
                             {% if current_user.is_authenticated %}
-                            <li>
-                                <hr class="dropdown-divider">
-                            </li>
                             <li><a class="dropdown-item" href="{{ url_for('pessoa.pessoa_create') }}">{{ render_icon('person-plus') }} Adicionar pessoa</a></li>
                             {% endif %}
                         </ul>

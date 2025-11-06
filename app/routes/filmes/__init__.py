@@ -247,7 +247,7 @@ def listar_filmes():
 
     Parâmetros de query string:
         page (int): Número da página (padrão: 1)
-        per_page (int): Registros por página (padrão: 24)
+        per_page (int): Registros por página (padrão: 12)
         search (str): Termo de busca para filtrar por título
 
     Returns:
@@ -255,7 +255,7 @@ def listar_filmes():
     """
     # Obter parâmetros da query string
     page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 24, type=int)
+    per_page = request.args.get('per_page', 12, type=int)
     search = request.args.get('search', '', type=str)
 
     # Limitar per_page para evitar sobrecarga
