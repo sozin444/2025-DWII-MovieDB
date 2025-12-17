@@ -1,0 +1,216 @@
+Etapa 1
+O objetivo desta etapa é colocar o sistema em funcionamento. Para que tudo ocorra de forma rápida e objetiva, coloquei os comandos e detalhes pertinentes para o funcionamento do sistema. lembrando que pular etapas pode causar erros de execução.
+
+-----------------------------------------------------------------------------------------------
+
+	Clonar Repositório
+
+1. Clonar repositório do GitHub.
+
+-----------------------------------------------------------------------------------------------
+
+	O Ambiente Virtual
+
+2. Instalar interpretador
+	- se aparecer na tela opção de instalar o interpretador(logo após clonar o projeto) ou
+	- no canto direito tem um texto escrito <no Interpreter>, deve se clicar, selecionar add new interpreter, e selecionar add local interpreter, verificar se é o python_3.13, e selecionar ok.
+
+3. no canto esquerdo selecionar o terminal, e verificar se o .venv esta ativo (.venv) PS C:\Users\ALUNO\Documents\MOVIE DATABASE\MyMovieDB-Final> 
+	- caso não esteja no terminal deve ser feito o comando .\.venv\Scripts\activate.ps1, e logo depois crie o ambiente virtual com o comando python -m venv .venv
+
+-----------------------------------------------------------------------------------------------
+
+	Configuração da Aplicação
+
+4. verifique se as dependências estão instaladas indo em requirements.txt, caso não apareça para instalar as dependências, estão instaladas. caso não estejam instaladas, rodar o comando 
+	- pip install -r requirements.txt
+
+-----------------------------------------------------------------------------------------------
+
+	Migração do Banco de dados
+
+5. Configure a variável de ambiente FLASK_APP para apontar para o arquivo principal da aplicação: set FLASK_APP=app.py
+
+6. Inicialize o repositório de migrações: flask db init
+
+7. após inicializar o repositório de migração, um diretório Instance será gerado. dentro do diretório crie um arquivo config.dev.json e nele coloque os seguintes dados:
+
+{
+  "BOOTSTRAP_SERVE_LOCAL": true,
+  "BOOTSTRAP_BOOTSWATCH_THEME": "Litera",
+  "APP_NAME": "MyMovieDB",
+  "APP_HOST": "0.0.0.0",
+  "APP_PORT": 5000,
+  "TIMEZONE": "America/Sao_Paulo",
+  "SQLALCHEMY_DATABASE_URI": "sqlite:///mymovie.db",
+  "SECRET_KEY": "e92a984a9a1ced6c12d532d2f1c7c61c81552526547e1eeb647ed8a3bff4aabb",
+  "PASSWORD_MIN": 8,
+  "PASSWORD_MAIUSCULA": true,
+  "PASSWORD_MINUSCULA": true,
+  "PASSWORD_NUMERO": true,
+  "PASSWORD_SIMBOLO": false,
+  "AVATAR_SIZE": 64,
+  "MAX_IMAGE_SIZE": 5242880,
+  "MAX_IMAGE_DIMENSIONS": [2048, 2048],
+  "MAX_CONTENT_LENGTH": 5242880,
+  "EMAIL_SENDER": "dev@localhost",
+  "SEND_EMAIL": false
+}
+
+8. após configurar o arquivo config.dev.json, configure as chaves de criptografia
+
+Obs.: Um detalhe que passou batido nesta seção, é que na configuração do config.dev.json, não fica nítido o link para acesso ao sistema. portanto deixo aqui as possibilidades caso não consiga acessar: "0.0.0.0:5000", "localhost:5000".
+
+-----------------------------------------------------------------------------------------------
+
+	Gerando as chaves de criptografia
+
+9.  para gerar as chaves de criptografia execute o comando: flask secrets generate
+
+10. proteger o arquivo de chaves
+
+# Adicionar ao .gitignore
+echo '.env.crypto' >> .gitignore
+echo '.env.crypto.backup' >> .gitignore
+
+# Fazer backup seguro
+cp instance/.env.crypto .env.crypto.backup
+
+
+11. verificar configuração: flask secrets list
+
+-----------------------------------------------------------------------------------------------
+	
+	Migração do Banco de dados parte 2
+
+11. Crie a primeira migração: flask db migrate -m "Migracao inicial"
+
+12. Aplique a migração ao banco de dados: flask db upgrade
+
+-----------------------------------------------------------------------------------------------
+
+	Execução da aplicação
+
+13. Agora, você pode rodar a aplicação: flask run
+
+Obs.: Nesta etapa o sistema já esta configurado e funcional, caso queira rodar, clique no botão de run no menu superior. mas não tem filmes ou usuários ainda. É recomendável que baixe os filmes para ficar totalmente funcional.
+
+-----------------------------------------------------------------------------------------------
+
+Etapa 2
+O objetivo desta etapa, é o lançamento de filmes dentro do sistema. populando o banco de dados do sistema como s dados do TMDB(The Movie Database)
+
+-----------------------------------------------------------------------------------------------
+
+	Criar conta no TMDB
+
+1. Acesse [https://www.themoviedb.org/](https://www.themoviedb.org/)
+
+2. Clique em **Sign Up** (Cadastrar-se) no canto superior direito
+
+3. Preencha o formulário de cadastro com seus dados
+
+4. Confirme seu e-mail através do link enviado
+
+-----------------------------------------------------------------------------------------------
+
+	Solicitar Chave da API
+
+1. Após fazer login, clique no seu avatar no canto superior direito.
+
+2. Selecione **Settings** (Configurações).
+
+3. No menu lateral esquerdo, clique em **API**.
+
+4. em **Request an API Key** (Solicitar Chave de API), clique no link "CLick here" destacado logo abaixo, em "To generate a new API key, click here."
+
+5. Selecione "yes"
+
+6. Preencha o formulário com as informações do seu projeto:
+   - **Application Name**: myMoviesDB (ou nome do seu projeto)
+   - **Application URL**: http://localhost:5000 (ou URL do seu projeto)
+   - **Application Summary**: Descrição breve do projeto
+   - preencha as informações de contato. 
+   - preencha os dados de endereço.
+
+Obs.: na seção "sobre o aplicativo" o site pede por uma descrição detalhada. portanto escreva bastante.
+
+7. Aceite os termos de uso
+
+8. click em "Access your API key details here."
+
+9. Copie a **API Key (v3 auth)** que será exibida
+
+
+-----------------------------------------------------------------------------------------------
+
+	Configurar a Chave da API
+
+10. no terminal de comando execute o comando com a sua chave logo após o igual: set TMDB_API_KEY=sua_chave_aqui
+
+-----------------------------------------------------------------------------------------------
+
+	Preparar Lista de Filmes
+
+11. Edite o arquivo `seeder/movies_id.txt` e adicione os IDs dos filmes que deseja importar, um por linha. Exemplos:
+
+550        # Fight Club
+680        # Pulp Fiction
+13         # Forrest Gump
+278        # The Shawshank Redemption
+
+-----------------------------------------------------------------------------------------------
+
+	Como encontrar IDs de filmes
+
+1. Acesse [https://www.themoviedb.org/](https://www.themoviedb.org/)
+
+2. Busque pelo filme desejado
+
+3. O ID estará na URL. Exemplo: `https://www.themoviedb.org/movie/550` → ID = 550
+
+-----------------------------------------------------------------------------------------------
+
+	Instalar Dependências
+
+4. Navegue até o diretório `seeder` e instale as dependências:
+
+cd seeder
+pip install -r requirements.txt
+
+
+ Processo de Seed 
+
+	Etapa 1: Buscar Dados do TMDB
+
+5. Execute o script `fetch_data.py` para baixar os dados dos filmes e pessoas do TMDB:
+python fetch_data.py --fetch-persons --language pt-BR
+
+
+Exemplo com limite de pessoas:
+
+python fetch_data.py --fetch-persons --max-people 10 --language pt-BR
+
+
+Exemplo garantindo funções técnicas principais:
+
+
+python fetch_data.py --fetch-persons --fetch-main-roles --max-people 5 --language pt-BR
+
+-----------------------------------------------------------------------------------------------
+
+	Etapa 2: Processar Dados
+
+6. Execute o script `process_data.py` para processar os dados baixados:
+python process_data.py
+
+-----------------------------------------------------------------------------------------------
+
+	Etapa 3: Inserir Dados no Banco
+
+7.Volte para o diretório raiz do projeto e execute o script `seed_data_into_app.py`:
+cd ..
+python -m seeder.seed_data_into_app
+
+
+Obs.: No caso de terminar todo o processo, execute o "flask run" e loco depois no arquivo do flask_app.py, clique em run, para acessar o sistema use os links: "0.0.0.0:5000", "localhost:5000". e faça o cadastro de um usuário, caso não tenha.
